@@ -168,15 +168,13 @@ export default function Events() {
               Join our exciting events and educational programs
             </p>
           </div>
-          {isDemoMode && (
-            <Button
-              onClick={() => setShowEventForm(true)}
-              className="flex items-center gap-2"
-            >
-              <Plus className="h-4 w-4" />
-              New Event/Program
-            </Button>
-          )}
+          <Button
+            onClick={() => setShowEventForm(true)}
+            className="flex items-center gap-2"
+          >
+            <Plus className="h-4 w-4" />
+            New Event/Program
+          </Button>
         </div>
       </div>
 
