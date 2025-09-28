@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { Search, Filter, Clock, Users, Zap, BookOpen, QrCode } from 'lucide-react';
+import { Search, Filter, Clock, Users, Zap, BookOpen, QrCode, Plus } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
@@ -8,6 +8,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { supabase } from '@/integrations/supabase/client';
 import { useToast } from '@/hooks/use-toast';
 import { GuideDetail } from '@/components/guides/GuideDetail';
+import { GuideForm } from '@/components/guides/GuideForm';
 
 interface Guide {
   id: string;
@@ -32,6 +33,7 @@ export default function Guides() {
   const [filteredGuides, setFilteredGuides] = useState<Guide[]>([]);
   const [loading, setLoading] = useState(true);
   const [selectedGuide, setSelectedGuide] = useState<Guide | null>(null);
+  const [showGuideForm, setShowGuideForm] = useState(false);
   const [searchTerm, setSearchTerm] = useState('');
   const [categoryFilter, setCategoryFilter] = useState('all');
   const [ageFilter, setAgeFilter] = useState('all');
@@ -142,15 +144,38 @@ export default function Guides() {
     );
   }
 
+  if (showGuideForm) {
+    return (
+      <GuideForm
+        onBack={() => setShowGuideForm(false)}
+        onSuccess={() => {
+          setShowGuideForm(false);
+          fetchGuides();
+        }}
+      />
+    );
+  }
+
   return (
     <div className="container mx-auto px-4 py-8">
       <div className="mb-8">
-        <h1 className="text-3xl font-bold bg-gradient-to-r from-primary to-accent bg-clip-text text-transparent mb-2">
-          VR Game Guides
-        </h1>
-        <p className="text-muted-foreground">
-          Master your favorite VR games with our comprehensive how-to guides
-        </p>
+        <div className="flex items-center justify-between">
+          <div>
+            <h1 className="text-3xl font-bold bg-gradient-to-r from-primary to-accent bg-clip-text text-transparent mb-2">
+              VR Game Guides
+            </h1>
+            <p className="text-muted-foreground">
+              Master your favorite VR games with our comprehensive how-to guides
+            </p>
+          </div>
+          <Button
+            onClick={() => setShowGuideForm(true)}
+            className="flex items-center gap-2"
+          >
+            <Plus className="h-4 w-4" />
+            New Guide
+          </Button>
+        </div>
       </div>
 
       {/* Filters */}
