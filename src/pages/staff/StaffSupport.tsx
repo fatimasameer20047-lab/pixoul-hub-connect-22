@@ -67,52 +67,40 @@ export default function StaffSupport() {
   }, [selectedConversation]);
 
   const fetchConversations = async () => {
-    // First get conversations that have at least one message
-    const { data: conversationsWithMessages, error: convError } = await supabase
-      .from('chat_messages')
-      .select('conversation_id')
-      .not('conversation_id', 'is', null);
-
-    if (convError) {
-      toast({ title: "Error loading conversations", description: convError.message, variant: "destructive" });
-      return;
-    }
-
-    // Get unique conversation IDs that have messages
-    const conversationIds = [...new Set(conversationsWithMessages?.map(m => m.conversation_id) || [])];
-
-    if (conversationIds.length === 0) {
-      setConversations([]);
-      return;
-    }
-
-    // Fetch the actual conversations
     const { data, error } = await supabase
       .from('chat_conversations')
       .select('*')
       .eq('conversation_type', 'support')
-      .in('id', conversationIds)
       .order('last_message_at', { ascending: false });
 
     if (error) {
       toast({ title: "Error loading conversations", description: error.message, variant: "destructive" });
     } else {
-      // Fetch profile names separately
-      const convWithProfiles = await Promise.all(
+      // Fetch profile names and message count for each conversation
+      const convWithDetails = await Promise.all(
         (data || []).map(async (conv) => {
           const { data: profile } = await supabase
             .from('profiles')
             .select('name')
             .eq('user_id', conv.user_id)
-            .single();
+            .maybeSingle();
+          
+          // Get message count for this conversation
+          const { count } = await supabase
+            .from('chat_messages')
+            .select('*', { count: 'exact', head: true })
+            .eq('conversation_id', conv.id);
           
           return {
             ...conv,
-            profiles: profile || { name: 'Guest' }
+            profiles: profile || { name: 'Guest' },
+            messageCount: count || 0
           };
         })
       );
-      setConversations(convWithProfiles);
+      
+      // Only show conversations that have at least one message
+      setConversations(convWithDetails.filter(c => c.messageCount > 0));
     }
   };
 
