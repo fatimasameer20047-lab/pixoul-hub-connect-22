@@ -63,6 +63,15 @@ interface CommunityPhoto {
   user_has_liked: boolean;
 }
 
+interface PhotoComment {
+  id: string;
+  text: string;
+  created_at: string;
+  user_id: string;
+  commenter_name: string;
+  commenter_avatar_color: string;
+}
+
 const quickActions = [
   {
     title: 'Booking',
@@ -114,6 +123,7 @@ const Index = () => {
   const [selectedPhoto, setSelectedPhoto] = useState<CommunityPhoto | null>(null);
   const [isPhotoDetailOpen, setIsPhotoDetailOpen] = useState(false);
   const [newComment, setNewComment] = useState<Record<string, string>>({});
+  const [photoComments, setPhotoComments] = useState<Record<string, PhotoComment[]>>({});
 
   useEffect(() => {
     fetchData();
@@ -235,6 +245,52 @@ const Index = () => {
     }
   };
 
+  const fetchPhotoComments = async (photoId: string) => {
+    try {
+      const { data, error } = await supabase
+        .from('photo_comments')
+        .select(`
+          id,
+          text,
+          created_at,
+          user_id,
+          profiles:user_id (
+            name,
+            avatar_color
+          )
+        `)
+        .eq('photo_id', photoId)
+        .order('created_at', { ascending: true });
+
+      if (error) throw error;
+
+      const comments: PhotoComment[] = (data || []).map((comment: any) => ({
+        id: comment.id,
+        text: comment.text,
+        created_at: comment.created_at,
+        user_id: comment.user_id,
+        commenter_name: comment.profiles?.name || 'Anonymous',
+        commenter_avatar_color: comment.profiles?.avatar_color || '#6366F1',
+      }));
+
+      setPhotoComments(prev => ({ ...prev, [photoId]: comments }));
+    } catch (error) {
+      console.error('Error fetching comments:', error);
+    }
+  };
+
+  const handleToggleComments = async (photoId: string) => {
+    if (activeCommentPhoto === photoId) {
+      setActiveCommentPhoto(null);
+    } else {
+      setActiveCommentPhoto(photoId);
+      // Fetch comments if we don't have them yet
+      if (!photoComments[photoId]) {
+        await fetchPhotoComments(photoId);
+      }
+    }
+  };
+
   const handleLike = async (photoId: string) => {
     if (!user) return;
     
@@ -305,9 +361,11 @@ const Index = () => {
           : p
       ));
       
+      // Refresh comments to show the new one
+      await fetchPhotoComments(photoId);
+      
       // Clear the comment text for this photo
       setNewComment(prev => ({ ...prev, [photoId]: '' }));
-      setActiveCommentPhoto(null);
       toast.success('Comment added!');
     } catch (error) {
       console.error('Error adding comment:', error);
@@ -640,7 +698,7 @@ const Index = () => {
                           className="flex items-center gap-1 text-sm text-muted-foreground hover:text-foreground transition-colors"
                           onClick={(e) => {
                             e.stopPropagation();
-                            setActiveCommentPhoto(activeCommentPhoto === photo.id ? null : photo.id);
+                            handleToggleComments(photo.id);
                           }}
                           disabled={!user}
                         >
@@ -653,10 +711,27 @@ const Index = () => {
                       <div className="space-y-3 border-t border-border pt-3 mt-3">
                         {/* Comments list */}
                         <div className="space-y-2 max-h-48 overflow-y-auto">
-                          {photo.comment_count === 0 ? (
-                            <p className="text-muted-foreground text-sm">No comments yet.</p>
+                          {!photoComments[photo.id] || photoComments[photo.id].length === 0 ? (
+                            <p className="text-muted-foreground text-sm">No comments yet. Be the first to comment!</p>
                           ) : (
-                            <p className="text-muted-foreground text-sm">View all comments in photo details</p>
+                            photoComments[photo.id].map((comment) => (
+                              <div key={comment.id} className="flex gap-2">
+                                <UserAvatar 
+                                  name={comment.commenter_name}
+                                  color={comment.commenter_avatar_color}
+                                  size="sm"
+                                />
+                                <div className="flex-1">
+                                  <div className="flex items-center gap-2">
+                                    <span className="font-medium text-sm">{comment.commenter_name}</span>
+                                    <span className="text-xs text-muted-foreground">
+                                      {new Date(comment.created_at).toLocaleDateString()}
+                                    </span>
+                                  </div>
+                                  <p className="text-sm mt-1">{comment.text}</p>
+                                </div>
+                              </div>
+                            ))
                           )}
                         </div>
 
