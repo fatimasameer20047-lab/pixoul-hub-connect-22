@@ -12,12 +12,23 @@ interface Guide {
   title: string;
   game_name: string;
   category?: string;
+  age_rating?: string;
+  intensity_level?: 'low' | 'medium' | 'high';
+  duration_minutes?: number;
+  overview: string;
+  setup_instructions: string;
+  how_to_play: string;
+  tips_and_scoring?: string;
+  media_urls?: string[];
+  qr_code_data?: string;
+  tags?: string[];
   is_published: boolean;
 }
 
 export default function StaffGuides() {
   const [guides, setGuides] = useState<Guide[]>([]);
   const [showGuideForm, setShowGuideForm] = useState(false);
+  const [selectedGuide, setSelectedGuide] = useState<Guide | undefined>(undefined);
   const { toast } = useToast();
 
   useEffect(() => {
@@ -27,13 +38,13 @@ export default function StaffGuides() {
   const fetchGuides = async () => {
     const { data, error } = await supabase
       .from('guides')
-      .select('id, title, game_name, category, is_published')
+      .select('*')
       .order('title');
 
     if (error) {
       toast({ title: "Error loading guides", description: error.message, variant: "destructive" });
     } else {
-      setGuides(data || []);
+      setGuides(data as any || []);
     }
   };
 
@@ -55,9 +66,14 @@ export default function StaffGuides() {
     <div className="p-6 space-y-6">
       {showGuideForm ? (
         <GuideForm
-          onBack={() => setShowGuideForm(false)}
+          guide={selectedGuide}
+          onBack={() => {
+            setShowGuideForm(false);
+            setSelectedGuide(undefined);
+          }}
           onSuccess={() => {
             setShowGuideForm(false);
+            setSelectedGuide(undefined);
             fetchGuides();
           }}
         />
@@ -93,7 +109,14 @@ export default function StaffGuides() {
                     )}
                   </div>
                   <div className="flex gap-2">
-                    <Button variant="outline" className="flex-1">
+                    <Button 
+                      variant="outline" 
+                      className="flex-1"
+                      onClick={() => {
+                        setSelectedGuide(guide as any);
+                        setShowGuideForm(true);
+                      }}
+                    >
                       <BookOpen className="h-4 w-4 mr-2" />
                       Edit
                     </Button>

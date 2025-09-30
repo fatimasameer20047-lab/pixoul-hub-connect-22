@@ -1,48 +1,63 @@
-import React from 'react';
+import React, { useState, useEffect } from 'react';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Megaphone, Pin, Calendar, User } from 'lucide-react';
+import { supabase } from '@/integrations/supabase/client';
+import { useToast } from '@/hooks/use-toast';
 
-const announcements = [
-  {
-    id: 1,
-    title: 'New WiFi Password - Updated Security',
-    content: 'The WiFi password has been updated for enhanced security. Please use the new credentials provided at the front desk.',
-    author: 'IT Support',
-    date: '2024-01-15',
-    pinned: true,
-    category: 'Security'
-  },
-  {
-    id: 2,
-    title: 'Maintenance Schedule - Conference Room A',
-    content: 'Conference Room A will be under maintenance on January 20th from 9 AM to 2 PM. Please book alternative rooms during this period.',
-    author: 'Facilities Team',
-    date: '2024-01-14',
-    pinned: true,
-    category: 'Maintenance'
-  },
-  {
-    id: 3,
-    title: 'New Menu Items Available',
-    content: 'We have added new vegetarian and vegan options to our snacks menu. Check out the updated offerings in the cafeteria.',
-    author: 'Kitchen Staff',
-    date: '2024-01-12',
-    pinned: false,
-    category: 'Food & Beverage'
-  },
-  {
-    id: 4,
-    title: 'Extended Business Hours',
-    content: 'Starting next week, our facility will be open until 10 PM on weekdays to accommodate your extended work schedules.',
-    author: 'Management',
-    date: '2024-01-10',
-    pinned: false,
-    category: 'Hours'
-  }
-];
+interface Announcement {
+  id: string;
+  title: string;
+  content: string;
+  excerpt?: string;
+  pinned: boolean;
+  published: boolean;
+  created_at: string;
+}
 
 export default function Announcements() {
+  const [announcements, setAnnouncements] = useState<Announcement[]>([]);
+  const { toast } = useToast();
+
+  useEffect(() => {
+    fetchAnnouncements();
+
+    // Set up real-time subscription for announcements
+    const channel = supabase
+      .channel('announcements-changes')
+      .on(
+        'postgres_changes',
+        {
+          event: '*',
+          schema: 'public',
+          table: 'announcements'
+        },
+        () => {
+          fetchAnnouncements();
+        }
+      )
+      .subscribe();
+
+    return () => {
+      supabase.removeChannel(channel);
+    };
+  }, []);
+
+  const fetchAnnouncements = async () => {
+    const { data, error } = await supabase
+      .from('announcements')
+      .select('*')
+      .eq('published', true)
+      .order('pinned', { ascending: false })
+      .order('created_at', { ascending: false });
+
+    if (error) {
+      toast({ title: "Error loading announcements", description: error.message, variant: "destructive" });
+    } else {
+      setAnnouncements(data || []);
+    }
+  };
+
   const pinnedAnnouncements = announcements.filter(a => a.pinned);
   const regularAnnouncements = announcements.filter(a => !a.pinned);
 
@@ -72,13 +87,10 @@ export default function Announcements() {
                       <Pin className="h-4 w-4 text-primary" />
                     </div>
                     <div className="flex items-center gap-2 text-sm text-muted-foreground">
-                      <User className="h-3 w-3" />
-                      <span>{announcement.author}</span>
-                      <Calendar className="h-3 w-3 ml-2" />
-                      <span>{announcement.date}</span>
+                      <Calendar className="h-3 w-3" />
+                      <span>{new Date(announcement.created_at).toLocaleDateString()}</span>
                     </div>
                   </div>
-                  <Badge variant="secondary">{announcement.category}</Badge>
                 </div>
               </CardHeader>
               <CardContent>
@@ -101,13 +113,10 @@ export default function Announcements() {
                     <CardTitle className="text-lg">{announcement.title}</CardTitle>
                   </div>
                   <div className="flex items-center gap-2 text-sm text-muted-foreground">
-                    <User className="h-3 w-3" />
-                    <span>{announcement.author}</span>
-                    <Calendar className="h-3 w-3 ml-2" />
-                    <span>{announcement.date}</span>
+                    <Calendar className="h-3 w-3" />
+                    <span>{new Date(announcement.created_at).toLocaleDateString()}</span>
                   </div>
                 </div>
-                <Badge variant="outline">{announcement.category}</Badge>
               </div>
             </CardHeader>
             <CardContent>
