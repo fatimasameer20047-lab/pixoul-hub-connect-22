@@ -168,13 +168,6 @@ export default function Guides() {
               Master your favorite VR games with our comprehensive how-to guides
             </p>
           </div>
-          <Button
-            onClick={() => setShowGuideForm(true)}
-            className="flex items-center gap-2"
-          >
-            <Plus className="h-4 w-4" />
-            New Guide
-          </Button>
         </div>
       </div>
 

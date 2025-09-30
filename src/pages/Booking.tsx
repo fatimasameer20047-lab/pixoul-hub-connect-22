@@ -127,28 +127,6 @@ export default function Booking() {
               Reserve gaming rooms or organize parties at Pixoul Hub
             </p>
           </div>
-          <div className="flex gap-2">
-            {isDemoMode && (
-              <Button
-                variant="default"
-                size="sm"
-                onClick={() => setShowDashboard(true)}
-                className="flex items-center gap-2"
-              >
-                <BarChart3 className="h-4 w-4" />
-                Staff Dashboard
-              </Button>
-            )}
-            <Button
-              variant="outline"
-              size="sm"
-              onClick={() => setShowPhotoUpload(true)}
-              className="flex items-center gap-2"
-            >
-              <Settings className="h-4 w-4" />
-              Set Room Photos
-            </Button>
-          </div>
         </div>
       </div>
 
