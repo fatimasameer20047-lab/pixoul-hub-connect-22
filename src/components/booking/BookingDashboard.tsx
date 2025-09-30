@@ -65,6 +65,43 @@ export function BookingDashboard() {
 
   useEffect(() => {
     fetchBookings();
+
+    // Subscribe to real-time updates for room bookings
+    const roomBookingsChannel = supabase
+      .channel('room-bookings-changes')
+      .on(
+        'postgres_changes',
+        {
+          event: '*',
+          schema: 'public',
+          table: 'room_bookings'
+        },
+        () => {
+          fetchBookings();
+        }
+      )
+      .subscribe();
+
+    // Subscribe to real-time updates for party requests
+    const partyRequestsChannel = supabase
+      .channel('party-requests-changes')
+      .on(
+        'postgres_changes',
+        {
+          event: '*',
+          schema: 'public',
+          table: 'party_requests'
+        },
+        () => {
+          fetchBookings();
+        }
+      )
+      .subscribe();
+
+    return () => {
+      supabase.removeChannel(roomBookingsChannel);
+      supabase.removeChannel(partyRequestsChannel);
+    };
   }, []);
 
   const fetchBookings = async () => {
@@ -75,7 +112,7 @@ export function BookingDashboard() {
         .select(`
           *,
           rooms!inner (name, type),
-          profiles!room_bookings_user_id_fkey (name)
+          profiles!room_bookings_user_id_profiles_fkey (name)
         `)
         .order('created_at', { ascending: false });
 
@@ -86,7 +123,7 @@ export function BookingDashboard() {
         .from('party_requests')
         .select(`
           *,
-          profiles!party_requests_user_id_fkey (name)
+          profiles!party_requests_user_id_profiles_fkey (name)
         `)
         .order('created_at', { ascending: false });
 
