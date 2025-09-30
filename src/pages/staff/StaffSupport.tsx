@@ -42,6 +42,27 @@ export default function StaffSupport() {
   useEffect(() => {
     if (selectedConversation) {
       fetchMessages(selectedConversation);
+      
+      // Subscribe to new messages in real-time
+      const channel = supabase
+        .channel(`staff-messages-${selectedConversation}`)
+        .on(
+          'postgres_changes',
+          {
+            event: 'INSERT',
+            schema: 'public',
+            table: 'chat_messages',
+            filter: `conversation_id=eq.${selectedConversation}`,
+          },
+          (payload) => {
+            setMessages((prev) => [...prev, payload.new as Message]);
+          }
+        )
+        .subscribe();
+
+      return () => {
+        supabase.removeChannel(channel);
+      };
     }
   }, [selectedConversation]);
 
@@ -103,8 +124,13 @@ export default function StaffSupport() {
     if (error) {
       toast({ title: "Error sending message", description: error.message, variant: "destructive" });
     } else {
+      // Update conversation last_message_at
+      await supabase
+        .from('chat_conversations')
+        .update({ last_message_at: new Date().toISOString() })
+        .eq('id', selectedConversation);
+      
       setNewMessage('');
-      fetchMessages(selectedConversation);
       fetchConversations();
     }
   };
