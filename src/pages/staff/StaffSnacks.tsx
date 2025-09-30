@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -23,6 +23,9 @@ export default function StaffSnacks() {
   const [items, setItems] = useState<SnackItem[]>([]);
   const [showAddForm, setShowAddForm] = useState(false);
   const [newItem, setNewItem] = useState({ name: '', price: '', category: 'Beverages' });
+  const [uploadingPhoto, setUploadingPhoto] = useState(false);
+  const [newItemPhoto, setNewItemPhoto] = useState<File | null>(null);
+  const newItemFileInputRef = useRef<HTMLInputElement>(null);
   const { toast } = useToast();
 
   useEffect(() => {
@@ -59,10 +62,51 @@ export default function StaffSnacks() {
     }
   };
 
+  const uploadPhoto = async (file: File): Promise<string | null> => {
+    try {
+      const fileExt = file.name.split('.').pop();
+      const fileName = `${Math.random().toString(36).substring(2)}-${Date.now()}.${fileExt}`;
+      const filePath = fileName;
+
+      const { error: uploadError } = await supabase.storage
+        .from('snacks')
+        .upload(filePath, file);
+
+      if (uploadError) throw uploadError;
+
+      const { data: { publicUrl } } = supabase.storage
+        .from('snacks')
+        .getPublicUrl(filePath);
+
+      return publicUrl;
+    } catch (error: any) {
+      toast({ title: "Error uploading photo", description: error.message, variant: "destructive" });
+      return null;
+    }
+  };
+
+  const handleNewItemPhotoSelect = (e: React.ChangeEvent<HTMLInputElement>) => {
+    if (e.target.files && e.target.files[0]) {
+      setNewItemPhoto(e.target.files[0]);
+      toast({ title: "Photo selected", description: "Photo will be uploaded when you add the item" });
+    }
+  };
+
   const handleAddItem = async () => {
     if (!newItem.name || !newItem.price) {
       toast({ title: "Please fill all fields", variant: "destructive" });
       return;
+    }
+
+    setUploadingPhoto(true);
+    let imageUrl = null;
+
+    if (newItemPhoto) {
+      imageUrl = await uploadPhoto(newItemPhoto);
+      if (!imageUrl) {
+        setUploadingPhoto(false);
+        return;
+      }
     }
 
     const { error } = await supabase
@@ -72,16 +116,52 @@ export default function StaffSnacks() {
         price: parseFloat(newItem.price),
         category: newItem.category,
         available: true,
+        image_url: imageUrl,
       });
+
+    setUploadingPhoto(false);
 
     if (error) {
       toast({ title: "Error adding item", description: error.message, variant: "destructive" });
     } else {
       setNewItem({ name: '', price: '', category: 'Beverages' });
+      setNewItemPhoto(null);
       setShowAddForm(false);
       toast({ title: "Item added successfully" });
       fetchSnacks();
     }
+  };
+
+  const handleChangePhoto = async (itemId: string) => {
+    const input = document.createElement('input');
+    input.type = 'file';
+    input.accept = 'image/*';
+    
+    input.onchange = async (e: Event) => {
+      const file = (e.target as HTMLInputElement).files?.[0];
+      if (!file) return;
+
+      setUploadingPhoto(true);
+      const imageUrl = await uploadPhoto(file);
+      
+      if (imageUrl) {
+        const { error } = await supabase
+          .from('snacks')
+          .update({ image_url: imageUrl })
+          .eq('id', itemId);
+
+        if (error) {
+          toast({ title: "Error updating photo", description: error.message, variant: "destructive" });
+        } else {
+          toast({ title: "Photo updated successfully" });
+          fetchSnacks();
+        }
+      }
+      
+      setUploadingPhoto(false);
+    };
+
+    input.click();
   };
 
   return (
@@ -137,14 +217,28 @@ export default function StaffSnacks() {
               </div>
               <div className="space-y-2">
                 <Label>Photo</Label>
-                <Button variant="outline" className="w-full">
+                <input
+                  ref={newItemFileInputRef}
+                  type="file"
+                  accept="image/*"
+                  onChange={handleNewItemPhotoSelect}
+                  className="hidden"
+                />
+                <Button 
+                  variant="outline" 
+                  className="w-full"
+                  onClick={() => newItemFileInputRef.current?.click()}
+                  type="button"
+                >
                   <Upload className="h-4 w-4 mr-2" />
-                  Upload Photo
+                  {newItemPhoto ? newItemPhoto.name : 'Upload Photo'}
                 </Button>
               </div>
             </div>
             <div className="flex gap-2">
-              <Button onClick={handleAddItem}>Add Item</Button>
+              <Button onClick={handleAddItem} disabled={uploadingPhoto}>
+                {uploadingPhoto ? 'Uploading...' : 'Add Item'}
+              </Button>
               <Button variant="outline" onClick={() => setShowAddForm(false)}>Cancel</Button>
             </div>
           </CardContent>
@@ -181,9 +275,14 @@ export default function StaffSnacks() {
                 </Badge>
               </div>
 
-              <Button variant="outline" className="w-full">
+              <Button 
+                variant="outline" 
+                className="w-full"
+                onClick={() => handleChangePhoto(item.id)}
+                disabled={uploadingPhoto}
+              >
                 <Upload className="h-4 w-4 mr-2" />
-                Change Photo
+                {uploadingPhoto ? 'Uploading...' : 'Change Photo'}
               </Button>
             </CardContent>
           </Card>
