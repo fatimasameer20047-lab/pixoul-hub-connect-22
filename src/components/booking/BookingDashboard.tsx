@@ -75,7 +75,7 @@ export function BookingDashboard() {
         .select(`
           *,
           rooms!inner (name, type),
-          profiles!inner (name)
+          profiles!room_bookings_user_id_fkey (name)
         `)
         .order('created_at', { ascending: false });
 
@@ -86,7 +86,7 @@ export function BookingDashboard() {
         .from('party_requests')
         .select(`
           *,
-          profiles!inner (name)
+          profiles!party_requests_user_id_fkey (name)
         `)
         .order('created_at', { ascending: false });
 

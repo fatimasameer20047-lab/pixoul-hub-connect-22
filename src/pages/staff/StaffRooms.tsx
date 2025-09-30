@@ -6,6 +6,7 @@ import { Settings, Upload, Users, DollarSign } from 'lucide-react';
 import { supabase } from '@/integrations/supabase/client';
 import { useToast } from '@/hooks/use-toast';
 import { RoomPhotoUploadDialog } from '@/components/booking/RoomPhotoUploadDialog';
+import { RoomEditDialog } from '@/components/booking/RoomEditDialog';
 import { BookingDashboard } from '@/components/booking/BookingDashboard';
 
 interface Room {
@@ -22,6 +23,7 @@ interface Room {
 export default function StaffRooms() {
   const [rooms, setRooms] = useState<Room[]>([]);
   const [showPhotoUpload, setShowPhotoUpload] = useState(false);
+  const [editingRoom, setEditingRoom] = useState<Room | null>(null);
   const { toast } = useToast();
 
   useEffect(() => {
@@ -92,7 +94,11 @@ export default function StaffRooms() {
                 </div>
               </div>
 
-              <Button variant="outline" className="w-full">
+              <Button 
+                variant="outline" 
+                className="w-full"
+                onClick={() => setEditingRoom(room)}
+              >
                 <Settings className="h-4 w-4 mr-2" />
                 Edit Details
               </Button>
@@ -107,6 +113,13 @@ export default function StaffRooms() {
         open={showPhotoUpload}
         onOpenChange={setShowPhotoUpload}
         onUploadComplete={fetchRooms}
+      />
+
+      <RoomEditDialog
+        room={editingRoom}
+        open={!!editingRoom}
+        onOpenChange={(open) => !open && setEditingRoom(null)}
+        onSuccess={fetchRooms}
       />
     </div>
   );
