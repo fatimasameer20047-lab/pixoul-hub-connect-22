@@ -632,10 +632,17 @@ const Index = () => {
                           <Heart className={`h-4 w-4 ${photo.user_has_liked ? 'fill-current text-red-500' : ''}`} />
                           <span className={photo.user_has_liked ? 'text-red-500' : ''}>{photo.like_count}</span>
                         </button>
-                        <div className="flex items-center gap-1 text-sm text-muted-foreground">
+                        <button
+                          className="flex items-center gap-1 text-sm text-muted-foreground hover:text-foreground transition-colors"
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            setActiveCommentPhoto(activeCommentPhoto === photo.id ? null : photo.id);
+                          }}
+                          disabled={!user}
+                        >
                           <MessageCircle className="h-4 w-4" />
                           {photo.comment_count}
-                        </div>
+                        </button>
                       </div>
                     </div>
                     {activeCommentPhoto === photo.id && (
