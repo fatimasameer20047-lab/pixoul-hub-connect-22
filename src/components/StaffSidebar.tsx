@@ -1,8 +1,9 @@
-import { Home, Calendar, BookOpen, Coffee, Image, HelpCircle, Bell, Settings } from "lucide-react";
-import { NavLink } from "react-router-dom";
+import { Home, Calendar, BookOpen, Coffee, Image, HelpCircle, Bell, Settings, LogOut } from "lucide-react";
+import { NavLink, useNavigate } from "react-router-dom";
 import {
   Sidebar,
   SidebarContent,
+  SidebarFooter,
   SidebarGroup,
   SidebarGroupContent,
   SidebarGroupLabel,
@@ -12,11 +13,20 @@ import {
   useSidebar,
 } from "@/components/ui/sidebar";
 import { useStaff } from "@/contexts/StaffContext";
+import { useAuth } from "@/contexts/AuthContext";
+import { Button } from "@/components/ui/button";
 
 export function StaffSidebar() {
   const { state } = useSidebar();
   const collapsed = state === 'collapsed';
   const { canManageRooms, canManageEvents, canManageSnacks, canModerateGallery, canManageGuides, canManageSupport } = useStaff();
+  const { signOut } = useAuth();
+  const navigate = useNavigate();
+
+  const handleLogout = async () => {
+    await signOut();
+    navigate('/auth');
+  };
 
   const staffItems = [
     { title: "Dashboard", url: "/staff", icon: Home, show: true },
@@ -56,6 +66,17 @@ export function StaffSidebar() {
           </SidebarGroupContent>
         </SidebarGroup>
       </SidebarContent>
+      
+      <SidebarFooter>
+        <SidebarMenu>
+          <SidebarMenuItem>
+            <SidebarMenuButton onClick={handleLogout} className="text-destructive hover:text-destructive hover:bg-destructive/10">
+              <LogOut className="h-4 w-4" />
+              {!collapsed && <span>Logout</span>}
+            </SidebarMenuButton>
+          </SidebarMenuItem>
+        </SidebarMenu>
+      </SidebarFooter>
     </Sidebar>
   );
 }
