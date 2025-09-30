@@ -6,6 +6,7 @@ import { Plus, Calendar, Users, Settings } from 'lucide-react';
 import { supabase } from '@/integrations/supabase/client';
 import { useToast } from '@/hooks/use-toast';
 import { EventForm } from '@/components/events/EventForm';
+import { EventRegistrations } from '@/components/events/EventRegistrations';
 import { format, parseISO } from 'date-fns';
 
 interface Event {
@@ -25,6 +26,7 @@ export default function StaffEvents() {
   const [events, setEvents] = useState<Event[]>([]);
   const [showEventForm, setShowEventForm] = useState(false);
   const [editingEvent, setEditingEvent] = useState<Event | null>(null);
+  const [viewingRegistrations, setViewingRegistrations] = useState<Event | null>(null);
   const { toast } = useToast();
 
   useEffect(() => {
@@ -53,7 +55,13 @@ export default function StaffEvents() {
 
   return (
     <div className="p-6 space-y-6">
-      {showEventForm ? (
+      {viewingRegistrations ? (
+        <EventRegistrations
+          eventId={viewingRegistrations.id}
+          eventTitle={viewingRegistrations.title}
+          onBack={() => setViewingRegistrations(null)}
+        />
+      ) : showEventForm ? (
         <EventForm
           event={editingEvent || undefined}
           onBack={() => {
@@ -120,7 +128,11 @@ export default function StaffEvents() {
                       <Settings className="h-4 w-4 mr-2" />
                       Edit
                     </Button>
-                    <Button variant="secondary" className="flex-1">
+                    <Button 
+                      variant="secondary" 
+                      className="flex-1"
+                      onClick={() => setViewingRegistrations(event)}
+                    >
                       Registrations
                     </Button>
                   </div>

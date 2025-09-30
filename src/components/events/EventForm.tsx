@@ -10,6 +10,7 @@ import { Calendar as CalendarComponent } from '@/components/ui/calendar';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/contexts/AuthContext';
+import { useStaff } from '@/contexts/StaffContext';
 import { useToast } from '@/hooks/use-toast';
 import { format } from 'date-fns';
 import { cn } from '@/lib/utils';
@@ -65,7 +66,7 @@ export function EventForm({ event, onBack, onSuccess }: EventFormProps) {
   const [endTime, setEndTime] = useState(event?.end_time || '');
   const [isSubmitting, setIsSubmitting] = useState(false);
   const { user } = useAuth();
-  const isDemoMode = import.meta.env.DEMO_MODE === 'true';
+  const { canManageEvents } = useStaff();
   const { toast } = useToast();
 
   const handleInputChange = (field: string, value: string) => {
@@ -74,7 +75,7 @@ export function EventForm({ event, onBack, onSuccess }: EventFormProps) {
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!user || !isDemoMode || !eventDate) return;
+    if (!user || !canManageEvents || !eventDate) return;
 
     setIsSubmitting(true);
 
@@ -131,13 +132,13 @@ export function EventForm({ event, onBack, onSuccess }: EventFormProps) {
     }
   };
 
-  if (!isDemoMode) {
+  if (!canManageEvents) {
     return (
       <div className="container mx-auto px-4 py-8">
         <Card>
           <CardContent className="text-center py-12">
             <h3 className="text-lg font-semibold mb-2">Access Denied</h3>
-            <p className="text-muted-foreground">Staff features are only available in demo mode.</p>
+            <p className="text-muted-foreground">You don't have permission to manage events.</p>
           </CardContent>
         </Card>
       </div>
