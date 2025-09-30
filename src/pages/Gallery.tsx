@@ -192,25 +192,22 @@ export default function Gallery() {
         .from('gallery')
         .getPublicUrl(filePath);
 
-      // Save to database
+      // Save to database - all new posts need staff approval
       const { error: dbError } = await supabase
         .from('gallery_items')
         .insert({
           user_id: userId,
           url: publicUrl,
-          visibility,
+          visibility: 'private', // All posts start as private for moderation
           caption
         });
 
       if (dbError) throw dbError;
 
-      toast.success('Photo uploaded successfully!');
+      toast.success('Photo uploaded and sent for approval!');
       
       // Refresh photos
       await fetchMyPhotos();
-      if (visibility === 'public') {
-        await fetchCommunityPhotos();
-      }
     } catch (error) {
       console.error('Error uploading photo:', error);
       toast.error('Failed to upload photo');

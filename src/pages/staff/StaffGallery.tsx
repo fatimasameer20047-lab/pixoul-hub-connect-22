@@ -23,6 +23,26 @@ export default function StaffGallery() {
 
   useEffect(() => {
     fetchPosts();
+    
+    // Set up real-time subscription for new posts
+    const channel = supabase
+      .channel('gallery-changes')
+      .on(
+        'postgres_changes',
+        {
+          event: '*',
+          schema: 'public',
+          table: 'gallery_items'
+        },
+        () => {
+          fetchPosts();
+        }
+      )
+      .subscribe();
+
+    return () => {
+      supabase.removeChannel(channel);
+    };
   }, []);
 
   const fetchPosts = async () => {

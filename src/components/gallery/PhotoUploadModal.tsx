@@ -147,6 +147,9 @@ export default function PhotoUploadModal({ isOpen, onClose, onUpload }: PhotoUpl
           {/* Visibility */}
           <div className="space-y-3">
             <Label>Visibility</Label>
+            <p className="text-sm text-muted-foreground">
+              All photos require staff approval before being published
+            </p>
             <RadioGroup 
               value={visibility} 
               onValueChange={(value: 'private' | 'public') => setVisibility(value)}
@@ -167,8 +170,8 @@ export default function PhotoUploadModal({ isOpen, onClose, onUpload }: PhotoUpl
                 <Label htmlFor="public" className="flex items-center gap-2 cursor-pointer">
                   <Eye className="h-4 w-4" />
                   <div>
-                    <div>Public</div>
-                    <div className="text-xs text-muted-foreground">Visible in community gallery</div>
+                    <div>Submit for Approval</div>
+                    <div className="text-xs text-muted-foreground">Will be visible after staff approval</div>
                   </div>
                 </Label>
               </div>
