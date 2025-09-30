@@ -67,10 +67,31 @@ export default function StaffSupport() {
   }, [selectedConversation]);
 
   const fetchConversations = async () => {
+    // First get conversations that have at least one message
+    const { data: conversationsWithMessages, error: convError } = await supabase
+      .from('chat_messages')
+      .select('conversation_id')
+      .not('conversation_id', 'is', null);
+
+    if (convError) {
+      toast({ title: "Error loading conversations", description: convError.message, variant: "destructive" });
+      return;
+    }
+
+    // Get unique conversation IDs that have messages
+    const conversationIds = [...new Set(conversationsWithMessages?.map(m => m.conversation_id) || [])];
+
+    if (conversationIds.length === 0) {
+      setConversations([]);
+      return;
+    }
+
+    // Fetch the actual conversations
     const { data, error } = await supabase
       .from('chat_conversations')
       .select('*')
       .eq('conversation_type', 'support')
+      .in('id', conversationIds)
       .order('last_message_at', { ascending: false });
 
     if (error) {
@@ -186,26 +207,36 @@ export default function StaffSupport() {
           <CardContent>
             {selectedConversation ? (
               <div className="space-y-4">
-                <div className="border rounded-lg p-4 h-96 overflow-y-auto space-y-3">
-                  {messages.map((msg) => (
-                    <div
-                      key={msg.id}
-                      className={`flex ${msg.is_staff ? 'justify-end' : 'justify-start'}`}
-                    >
-                      <div
-                        className={`max-w-xs p-3 rounded-lg ${
-                          msg.is_staff
-                            ? 'bg-primary text-primary-foreground'
-                            : 'bg-muted'
-                        }`}
-                      >
-                        <p className="text-sm">{msg.message}</p>
-                        <p className="text-xs opacity-70 mt-1">
-                          {new Date(msg.created_at).toLocaleTimeString()}
-                        </p>
-                      </div>
+                <div className="border rounded-lg p-4 h-96 overflow-y-auto space-y-3 bg-muted/30">
+                  {messages.length === 0 ? (
+                    <div className="text-center text-muted-foreground py-8">
+                      <MessageCircle className="h-12 w-12 mx-auto mb-4 opacity-50" />
+                      <p>No messages in this conversation yet</p>
                     </div>
-                  ))}
+                  ) : (
+                    messages.map((msg) => (
+                      <div
+                        key={msg.id}
+                        className={`flex ${msg.is_staff ? 'justify-end' : 'justify-start'}`}
+                      >
+                        <div
+                          className={`max-w-xs p-3 rounded-lg ${
+                            msg.is_staff
+                              ? 'bg-primary text-primary-foreground'
+                              : 'bg-muted text-foreground'
+                          }`}
+                        >
+                          {!msg.is_staff && (
+                            <p className="text-xs font-semibold mb-1 opacity-70">Guest</p>
+                          )}
+                          <p className="text-sm">{msg.message}</p>
+                          <p className="text-xs opacity-70 mt-1">
+                            {new Date(msg.created_at).toLocaleString()}
+                          </p>
+                        </div>
+                      </div>
+                    ))
+                  )}
                 </div>
 
                 <div className="flex gap-2">
