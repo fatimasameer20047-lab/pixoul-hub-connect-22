@@ -8,6 +8,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { Switch } from '@/components/ui/switch';
 import { Plus, Coffee, Upload } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
+import { supabase } from '@/integrations/supabase/client';
 
 interface SnackItem {
   id: string;
@@ -19,42 +20,68 @@ interface SnackItem {
 }
 
 export default function StaffSnacks() {
-  const [items, setItems] = useState<SnackItem[]>([
-    { id: '1', name: 'Coffee', price: 3.50, category: 'Beverages', available: true },
-    { id: '2', name: 'Tea', price: 2.50, category: 'Beverages', available: true },
-    { id: '3', name: 'Sandwich', price: 8.50, category: 'Food', available: true },
-    { id: '4', name: 'Cookies', price: 2.00, category: 'Snacks', available: false },
-    { id: '5', name: 'Water', price: 1.50, category: 'Beverages', available: true },
-  ]);
+  const [items, setItems] = useState<SnackItem[]>([]);
   const [showAddForm, setShowAddForm] = useState(false);
   const [newItem, setNewItem] = useState({ name: '', price: '', category: 'Beverages' });
   const { toast } = useToast();
 
-  const toggleAvailability = (id: string) => {
-    setItems(items.map(item => 
-      item.id === id ? { ...item, available: !item.available } : item
-    ));
-    toast({ title: "Availability updated" });
+  useEffect(() => {
+    fetchSnacks();
+  }, []);
+
+  const fetchSnacks = async () => {
+    const { data, error } = await supabase
+      .from('snacks')
+      .select('*')
+      .order('name', { ascending: true });
+
+    if (error) {
+      toast({ title: "Error loading snacks", description: error.message, variant: "destructive" });
+    } else {
+      setItems(data || []);
+    }
   };
 
-  const handleAddItem = () => {
+  const toggleAvailability = async (id: string) => {
+    const item = items.find(i => i.id === id);
+    if (!item) return;
+
+    const { error } = await supabase
+      .from('snacks')
+      .update({ available: !item.available })
+      .eq('id', id);
+
+    if (error) {
+      toast({ title: "Error updating availability", description: error.message, variant: "destructive" });
+    } else {
+      toast({ title: "Availability updated" });
+      fetchSnacks();
+    }
+  };
+
+  const handleAddItem = async () => {
     if (!newItem.name || !newItem.price) {
       toast({ title: "Please fill all fields", variant: "destructive" });
       return;
     }
 
-    const item: SnackItem = {
-      id: Date.now().toString(),
-      name: newItem.name,
-      price: parseFloat(newItem.price),
-      category: newItem.category,
-      available: true,
-    };
+    const { error } = await supabase
+      .from('snacks')
+      .insert({
+        name: newItem.name,
+        price: parseFloat(newItem.price),
+        category: newItem.category,
+        available: true,
+      });
 
-    setItems([...items, item]);
-    setNewItem({ name: '', price: '', category: 'Beverages' });
-    setShowAddForm(false);
-    toast({ title: "Item added successfully" });
+    if (error) {
+      toast({ title: "Error adding item", description: error.message, variant: "destructive" });
+    } else {
+      setNewItem({ name: '', price: '', category: 'Beverages' });
+      setShowAddForm(false);
+      toast({ title: "Item added successfully" });
+      fetchSnacks();
+    }
   };
 
   return (
