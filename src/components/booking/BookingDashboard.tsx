@@ -7,6 +7,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/contexts/AuthContext';
+import { useStaff } from '@/contexts/StaffContext';
 import { useToast } from '@/hooks/use-toast';
 import { format, parseISO } from 'date-fns';
 import { ChatDialog } from '@/components/chat/ChatDialog';
@@ -60,7 +61,7 @@ export function BookingDashboard() {
   const [loading, setLoading] = useState(true);
   const [selectedChat, setSelectedChat] = useState<{type: 'room_booking' | 'party_request', id: string, title: string} | null>(null);
   const { user } = useAuth();
-  const isDemoMode = import.meta.env.DEMO_MODE === 'true';
+  const { canManageRooms } = useStaff();
   const { toast } = useToast();
 
   useEffect(() => {
@@ -224,13 +225,13 @@ export function BookingDashboard() {
     setSelectedChat({ type, id, title });
   };
 
-  if (!isDemoMode) {
+  if (!canManageRooms) {
     return (
       <div className="container mx-auto px-4 py-8">
         <Card>
           <CardContent className="text-center py-12">
             <h3 className="text-lg font-semibold mb-2">Access Denied</h3>
-            <p className="text-muted-foreground">Staff features are only available in demo mode.</p>
+            <p className="text-muted-foreground">You don't have permission to view bookings.</p>
           </CardContent>
         </Card>
       </div>
