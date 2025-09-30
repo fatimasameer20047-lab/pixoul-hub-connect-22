@@ -4,6 +4,7 @@ import { Card, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Skeleton } from '@/components/ui/skeleton';
+import { Textarea } from '@/components/ui/textarea';
 import { 
   Calendar, 
   Clock, 
@@ -17,13 +18,13 @@ import {
   Utensils, 
   MapPin, 
   BookOpen, 
-  HelpCircle
+  HelpCircle,
+  Send
 } from 'lucide-react';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/contexts/AuthContext';
 import { toast } from 'sonner';
 import { UserAvatar } from '@/components/gallery/UserAvatar';
-import { InlineCommentForm } from '@/components/gallery/InlineCommentForm';
 import PhotoDetail from '@/components/gallery/PhotoDetail';
 
 interface Announcement {
@@ -112,6 +113,7 @@ const Index = () => {
   const [isSubmittingComment, setIsSubmittingComment] = useState(false);
   const [selectedPhoto, setSelectedPhoto] = useState<CommunityPhoto | null>(null);
   const [isPhotoDetailOpen, setIsPhotoDetailOpen] = useState(false);
+  const [newComment, setNewComment] = useState<Record<string, string>>({});
 
   useEffect(() => {
     fetchData();
@@ -303,6 +305,8 @@ const Index = () => {
           : p
       ));
       
+      // Clear the comment text for this photo
+      setNewComment(prev => ({ ...prev, [photoId]: '' }));
       setActiveCommentPhoto(null);
       toast.success('Comment added!');
     } catch (error) {
@@ -646,12 +650,33 @@ const Index = () => {
                       </div>
                     </div>
                     {activeCommentPhoto === photo.id && (
-                      <div className="mt-3 pt-3 border-t border-border">
-                        <InlineCommentForm
-                          onSubmit={(comment) => handleAddComment(photo.id, comment)}
-                          onCancel={() => setActiveCommentPhoto(null)}
-                          isSubmitting={isSubmittingComment}
-                        />
+                      <div className="space-y-3 border-t border-border pt-3 mt-3">
+                        {/* Comments list */}
+                        <div className="space-y-2 max-h-48 overflow-y-auto">
+                          {photo.comment_count === 0 ? (
+                            <p className="text-muted-foreground text-sm">No comments yet.</p>
+                          ) : (
+                            <p className="text-muted-foreground text-sm">View all comments in photo details</p>
+                          )}
+                        </div>
+
+                        {/* Add comment */}
+                        <div className="flex gap-2">
+                          <Textarea
+                            placeholder="Add a comment..."
+                            value={newComment[photo.id] || ''}
+                            onChange={(e) => setNewComment(prev => ({ ...prev, [photo.id]: e.target.value }))}
+                            className="flex-1 min-h-[60px] text-sm"
+                          />
+                          <Button 
+                            onClick={() => handleAddComment(photo.id, newComment[photo.id] || '')}
+                            disabled={!newComment[photo.id]?.trim() || isSubmittingComment}
+                            size="sm"
+                            className="self-end"
+                          >
+                            <Send className="h-4 w-4" />
+                          </Button>
+                        </div>
                       </div>
                     )}
                   </CardContent>
