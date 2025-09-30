@@ -24,6 +24,7 @@ import { useAuth } from '@/contexts/AuthContext';
 import { toast } from 'sonner';
 import { UserAvatar } from '@/components/gallery/UserAvatar';
 import { InlineCommentForm } from '@/components/gallery/InlineCommentForm';
+import PhotoDetail from '@/components/gallery/PhotoDetail';
 
 interface Announcement {
   id: string;
@@ -109,6 +110,8 @@ const Index = () => {
   const [isLoading, setIsLoading] = useState(true);
   const [activeCommentPhoto, setActiveCommentPhoto] = useState<string | null>(null);
   const [isSubmittingComment, setIsSubmittingComment] = useState(false);
+  const [selectedPhoto, setSelectedPhoto] = useState<CommunityPhoto | null>(null);
+  const [isPhotoDetailOpen, setIsPhotoDetailOpen] = useState(false);
 
   useEffect(() => {
     fetchData();
@@ -588,7 +591,10 @@ const Index = () => {
                 <Card key={photo.id} className="overflow-hidden hover:shadow-md transition-shadow">
                   <div 
                     className="aspect-square bg-muted overflow-hidden cursor-pointer"
-                    onClick={() => navigate(`/gallery/community/${photo.id}`)}
+                    onClick={() => {
+                      setSelectedPhoto(photo);
+                      setIsPhotoDetailOpen(true);
+                    }}
                   >
                     <img 
                       src={photo.url} 
@@ -648,6 +654,25 @@ const Index = () => {
           )}
         </section>
       </div>
+
+      {/* Photo Detail Modal */}
+      <PhotoDetail
+        photo={selectedPhoto ? {
+          id: selectedPhoto.id,
+          url: selectedPhoto.url,
+          caption: selectedPhoto.caption,
+          visibility: 'public' as const,
+          created_at: selectedPhoto.created_at,
+          user_id: selectedPhoto.user_id
+        } : null}
+        isOpen={isPhotoDetailOpen}
+        onClose={() => {
+          setIsPhotoDetailOpen(false);
+          setSelectedPhoto(null);
+          // Refresh community photos to get updated counts
+          fetchCommunityPhotos();
+        }}
+      />
     </div>
   );
 };
