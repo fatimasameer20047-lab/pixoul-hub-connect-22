@@ -25,6 +25,26 @@ export default function Snacks() {
 
   useEffect(() => {
     fetchSnacks();
+
+    // Subscribe to real-time updates for snacks
+    const snacksChannel = supabase
+      .channel('snacks-changes')
+      .on(
+        'postgres_changes',
+        {
+          event: '*',
+          schema: 'public',
+          table: 'snacks'
+        },
+        () => {
+          fetchSnacks();
+        }
+      )
+      .subscribe();
+
+    return () => {
+      supabase.removeChannel(snacksChannel);
+    };
   }, []);
 
   const fetchSnacks = async () => {
@@ -53,6 +73,15 @@ export default function Snacks() {
           const Icon = iconMap[item.category] || Coffee;
           return (
             <Card key={item.id} className={!item.available ? 'opacity-50' : ''}>
+              {item.image_url && (
+                <div className="aspect-video w-full overflow-hidden">
+                  <img 
+                    src={item.image_url} 
+                    alt={item.name}
+                    className="w-full h-full object-cover"
+                  />
+                </div>
+              )}
               <CardHeader className="flex flex-row items-center space-y-0 pb-2">
                 <Icon className="h-6 w-6 text-muted-foreground" />
                 <div className="ml-4 flex-1">

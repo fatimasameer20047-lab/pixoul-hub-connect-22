@@ -30,6 +30,26 @@ export default function StaffSnacks() {
 
   useEffect(() => {
     fetchSnacks();
+
+    // Subscribe to real-time updates for snacks
+    const snacksChannel = supabase
+      .channel('snacks-changes')
+      .on(
+        'postgres_changes',
+        {
+          event: '*',
+          schema: 'public',
+          table: 'snacks'
+        },
+        () => {
+          fetchSnacks();
+        }
+      )
+      .subscribe();
+
+    return () => {
+      supabase.removeChannel(snacksChannel);
+    };
   }, []);
 
   const fetchSnacks = async () => {
@@ -248,6 +268,15 @@ export default function StaffSnacks() {
       <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
         {items.map((item) => (
           <Card key={item.id}>
+            {item.image_url && (
+              <div className="aspect-video w-full overflow-hidden">
+                <img 
+                  src={item.image_url} 
+                  alt={item.name}
+                  className="w-full h-full object-cover"
+                />
+              </div>
+            )}
             <CardHeader>
               <div className="flex items-center justify-between">
                 <div className="flex items-center gap-2">
