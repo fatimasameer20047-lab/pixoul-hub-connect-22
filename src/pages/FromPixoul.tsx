@@ -9,8 +9,9 @@ interface PixoulPost {
   type: 'event' | 'program' | 'announcement' | 'post';
   title: string | null;
   caption: string;
-  media_urls: string[];
+  images: string[];
   created_at: string;
+  pinned: boolean;
 }
 
 const FromPixoul = () => {
@@ -27,6 +28,7 @@ const FromPixoul = () => {
         .from('pixoul_posts')
         .select('*')
         .eq('status', 'published')
+        .order('pinned', { ascending: false })
         .order('created_at', { ascending: false });
 
       if (error) throw error;
@@ -72,10 +74,15 @@ const FromPixoul = () => {
         ) : (
           <div className="space-y-6">
             {posts.map((post) => (
-              <Card key={post.id} className="overflow-hidden">
-                {post.media_urls && post.media_urls.length > 0 && (
+              <Card key={post.id} className="overflow-hidden relative">
+                {post.pinned && (
+                  <Badge className="absolute top-4 right-4 z-10" variant="destructive">
+                    Pinned
+                  </Badge>
+                )}
+                {post.images && post.images.length > 0 && (
                   <div className="grid grid-cols-1 gap-2 p-4">
-                    {post.media_urls.map((url, index) => (
+                    {post.images.map((url, index) => (
                       <img
                         key={index}
                         src={url}

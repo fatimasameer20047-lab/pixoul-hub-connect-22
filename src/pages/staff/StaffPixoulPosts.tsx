@@ -32,7 +32,9 @@ interface PixoulPost {
   type: 'event' | 'program' | 'announcement' | 'post';
   title: string | null;
   caption: string;
-  media_urls: string[];
+  images: string[];
+  pinned: boolean;
+  published_at: string | null;
 }
 
 const StaffPixoulPosts = () => {
@@ -49,7 +51,8 @@ const StaffPixoulPosts = () => {
     title: '',
     caption: '',
     status: 'draft' as PixoulPost['status'],
-    media_urls: [] as string[],
+    images: [] as string[],
+    pinned: false,
   });
 
   useEffect(() => {
@@ -83,18 +86,21 @@ const StaffPixoulPosts = () => {
     const uploadedUrls: string[] = [];
 
     try {
+      // Create post first to get ID if editing, or use temp ID
+      const postId = editingPost?.id || crypto.randomUUID();
+
       for (const file of Array.from(files)) {
         const fileExt = file.name.split('.').pop();
-        const fileName = `${user!.id}/${Date.now()}.${fileExt}`;
+        const fileName = `${postId}/${Date.now()}.${fileExt}`;
 
-        const { error: uploadError, data } = await supabase.storage
-          .from('gallery')
+        const { error: uploadError } = await supabase.storage
+          .from('pixoul-posts')
           .upload(fileName, file);
 
         if (uploadError) throw uploadError;
 
         const { data: { publicUrl } } = supabase.storage
-          .from('gallery')
+          .from('pixoul-posts')
           .getPublicUrl(fileName);
 
         uploadedUrls.push(publicUrl);
@@ -102,7 +108,7 @@ const StaffPixoulPosts = () => {
 
       setFormData(prev => ({
         ...prev,
-        media_urls: [...prev.media_urls, ...uploadedUrls]
+        images: [...prev.images, ...uploadedUrls]
       }));
       toast.success('Images uploaded successfully');
     } catch (error) {
@@ -116,7 +122,7 @@ const StaffPixoulPosts = () => {
   const removeImage = (url: string) => {
     setFormData(prev => ({
       ...prev,
-      media_urls: prev.media_urls.filter(u => u !== url)
+      images: prev.images.filter(u => u !== url)
     }));
   };
 
@@ -130,41 +136,63 @@ const StaffPixoulPosts = () => {
 
     try {
       if (editingPost) {
+        const updateData: any = {
+          type: formData.type,
+          title: formData.title || null,
+          caption: formData.caption,
+          status: formData.status,
+          images: formData.images,
+          pinned: formData.pinned,
+        };
+
+        // Set published_at when publishing for the first time
+        if (formData.status === 'published' && !editingPost.published_at) {
+          updateData.published_at = new Date().toISOString();
+        }
+
         const { error } = await supabase
           .from('pixoul_posts')
-          .update({
-            type: formData.type,
-            title: formData.title || null,
-            caption: formData.caption,
-            status: formData.status,
-            media_urls: formData.media_urls,
-          })
+          .update(updateData)
           .eq('id', editingPost.id);
 
-        if (error) throw error;
+        if (error) {
+          console.error('Update error:', error);
+          throw error;
+        }
         toast.success('Post updated successfully');
       } else {
+        const insertData: any = {
+          author_id: user!.id,
+          type: formData.type,
+          title: formData.title || null,
+          caption: formData.caption,
+          status: formData.status,
+          images: formData.images,
+          pinned: formData.pinned,
+        };
+
+        // Set published_at if publishing immediately
+        if (formData.status === 'published') {
+          insertData.published_at = new Date().toISOString();
+        }
+
         const { error } = await supabase
           .from('pixoul_posts')
-          .insert({
-            author_id: user!.id,
-            type: formData.type,
-            title: formData.title || null,
-            caption: formData.caption,
-            status: formData.status,
-            media_urls: formData.media_urls,
-          });
+          .insert(insertData);
 
-        if (error) throw error;
+        if (error) {
+          console.error('Insert error:', error);
+          throw error;
+        }
         toast.success('Post created successfully');
       }
 
       setIsDialogOpen(false);
       resetForm();
       fetchPosts();
-    } catch (error) {
+    } catch (error: any) {
       console.error('Error saving post:', error);
-      toast.error('Failed to save post');
+      toast.error(error.message || 'Failed to save post');
     }
   };
 
@@ -189,9 +217,16 @@ const StaffPixoulPosts = () => {
   const togglePublish = async (post: PixoulPost) => {
     try {
       const newStatus = post.status === 'published' ? 'draft' : 'published';
+      const updateData: any = { status: newStatus };
+      
+      // Set published_at when publishing for the first time
+      if (newStatus === 'published' && !post.published_at) {
+        updateData.published_at = new Date().toISOString();
+      }
+      
       const { error } = await supabase
         .from('pixoul_posts')
-        .update({ status: newStatus })
+        .update(updateData)
         .eq('id', post.id);
 
       if (error) throw error;
@@ -210,7 +245,8 @@ const StaffPixoulPosts = () => {
       title: post.title || '',
       caption: post.caption,
       status: post.status,
-      media_urls: post.media_urls || [],
+      images: post.images || [],
+      pinned: post.pinned,
     });
     setIsDialogOpen(true);
   };
@@ -222,7 +258,8 @@ const StaffPixoulPosts = () => {
       title: '',
       caption: '',
       status: 'draft',
-      media_urls: [],
+      images: [],
+      pinned: false,
     });
   };
 
@@ -297,9 +334,9 @@ const StaffPixoulPosts = () => {
                 <div>
                   <label className="text-sm font-medium mb-2 block">Images</label>
                   <div className="space-y-2">
-                    {formData.media_urls.length > 0 && (
+                    {formData.images.length > 0 && (
                       <div className="grid grid-cols-3 gap-2">
-                        {formData.media_urls.map((url, index) => (
+                        {formData.images.map((url, index) => (
                           <div key={index} className="relative">
                             <img
                               src={url}
@@ -335,6 +372,19 @@ const StaffPixoulPosts = () => {
                       className="hidden"
                     />
                   </div>
+                </div>
+
+                <div className="flex items-center gap-2">
+                  <input
+                    type="checkbox"
+                    id="pinned"
+                    checked={formData.pinned}
+                    onChange={(e) => setFormData(prev => ({ ...prev, pinned: e.target.checked }))}
+                    className="h-4 w-4"
+                  />
+                  <label htmlFor="pinned" className="text-sm font-medium">
+                    Pin to top
+                  </label>
                 </div>
 
                 <div>
@@ -386,6 +436,7 @@ const StaffPixoulPosts = () => {
                       {post.status}
                     </Badge>
                     <Badge variant="outline">{post.type}</Badge>
+                    {post.pinned && <Badge variant="destructive">Pinned</Badge>}
                   </div>
                   <div className="flex gap-2">
                     <Button
@@ -413,9 +464,9 @@ const StaffPixoulPosts = () => {
                 </div>
                 {post.title && <h3 className="font-semibold mb-1">{post.title}</h3>}
                 <p className="text-sm mb-2 whitespace-pre-wrap">{post.caption}</p>
-                {post.media_urls && post.media_urls.length > 0 && (
+                {post.images && post.images.length > 0 && (
                   <div className="grid grid-cols-4 gap-2 mt-2">
-                    {post.media_urls.map((url, index) => (
+                    {post.images.map((url, index) => (
                       <img
                         key={index}
                         src={url}
@@ -427,6 +478,11 @@ const StaffPixoulPosts = () => {
                 )}
                 <p className="text-xs text-muted-foreground mt-2">
                   {new Date(post.created_at).toLocaleString()}
+                  {post.published_at && post.status === 'published' && (
+                    <span className="ml-2">
+                      • Published: {new Date(post.published_at).toLocaleString()}
+                    </span>
+                  )}
                 </p>
               </Card>
             ))

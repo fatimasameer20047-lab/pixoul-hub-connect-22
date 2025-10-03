@@ -10,8 +10,9 @@ interface PixoulPost {
   type: 'event' | 'program' | 'announcement' | 'post';
   title: string | null;
   caption: string;
-  media_urls: string[];
+  images: string[];
   created_at: string;
+  pinned: boolean;
 }
 
 export function FromPixoulRow() {
@@ -28,6 +29,7 @@ export function FromPixoulRow() {
         .from('pixoul_posts')
         .select('*')
         .eq('status', 'published')
+        .order('pinned', { ascending: false })
         .order('created_at', { ascending: false })
         .limit(10);
 
@@ -92,17 +94,27 @@ export function FromPixoulRow() {
               key={post.id} 
               className="min-w-[320px] max-w-[320px] overflow-hidden hover:shadow-lg transition-shadow cursor-pointer flex-shrink-0"
             >
-              {post.media_urls && post.media_urls.length > 0 ? (
+              {post.images && post.images.length > 0 ? (
                 <div className="relative aspect-video">
                   <img
-                    src={post.media_urls[0]}
+                    src={post.images[0]}
                     alt={post.title || post.caption}
                     className="w-full h-full object-cover"
                   />
+                  {post.pinned && (
+                    <Badge className="absolute top-2 right-2" variant="destructive">
+                      Pinned
+                    </Badge>
+                  )}
                 </div>
               ) : (
-                <div className="bg-muted aspect-video flex items-center justify-center">
+                <div className="bg-muted aspect-video flex items-center justify-center relative">
                   <p className="text-muted-foreground text-sm">No image</p>
+                  {post.pinned && (
+                    <Badge className="absolute top-2 right-2" variant="destructive">
+                      Pinned
+                    </Badge>
+                  )}
                 </div>
               )}
               <div className="p-4">

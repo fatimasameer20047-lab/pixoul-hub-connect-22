@@ -468,7 +468,9 @@ export type Database = {
           caption: string
           created_at: string
           id: string
-          media_urls: string[] | null
+          images: Json
+          pinned: boolean
+          published_at: string | null
           status: string
           title: string | null
           type: string
@@ -479,7 +481,9 @@ export type Database = {
           caption: string
           created_at?: string
           id?: string
-          media_urls?: string[] | null
+          images?: Json
+          pinned?: boolean
+          published_at?: string | null
           status?: string
           title?: string | null
           type: string
@@ -490,7 +494,9 @@ export type Database = {
           caption?: string
           created_at?: string
           id?: string
-          media_urls?: string[] | null
+          images?: Json
+          pinned?: boolean
+          published_at?: string | null
           status?: string
           title?: string | null
           type?: string
