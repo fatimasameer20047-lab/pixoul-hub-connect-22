@@ -323,11 +323,11 @@ export function CommunityFeed() {
 
   if (isLoading) {
     return (
-      <div className="w-full max-w-2xl mx-auto px-4 py-8 space-y-6">
+      <div className="w-full px-4 py-8 lg:px-8 space-y-4">
         {Array.from({ length: 3 }).map((_, i) => (
-          <Card key={i}>
+          <Card key={i} className="max-w-[700px]">
             <CardContent className="p-0">
-              <div className="p-4 flex items-center gap-3">
+              <div className="p-3 flex items-center gap-3">
                 <Skeleton className="h-10 w-10 rounded-full" />
                 <div className="flex-1">
                   <Skeleton className="h-4 w-32 mb-2" />
@@ -335,7 +335,7 @@ export function CommunityFeed() {
                 </div>
               </div>
               <Skeleton className="w-full aspect-square" />
-              <div className="p-4 space-y-3">
+              <div className="p-3 space-y-2">
                 <Skeleton className="h-4 w-full" />
                 <Skeleton className="h-8 w-24" />
               </div>
@@ -347,16 +347,16 @@ export function CommunityFeed() {
   }
 
   return (
-    <div className="w-full max-w-2xl mx-auto px-4 py-8">
+    <div className="w-full px-4 py-8 lg:px-8">
       <Tabs value={sortBy} onValueChange={(v) => setSortBy(v as 'newest' | 'popular')} className="space-y-6">
-        <TabsList className="grid w-full max-w-md mx-auto grid-cols-2">
+        <TabsList className="grid w-full max-w-[700px] grid-cols-2">
           <TabsTrigger value="newest">Newest</TabsTrigger>
           <TabsTrigger value="popular">Most Popular</TabsTrigger>
         </TabsList>
 
-        <TabsContent value={sortBy} className="space-y-6 mt-6">
+        <TabsContent value={sortBy} className="space-y-4 mt-6 max-w-[700px]">
           {photos.length === 0 ? (
-            <Card>
+            <Card className="max-w-[700px]">
               <CardContent className="p-12 text-center">
                 <Camera className="h-16 w-16 mx-auto text-muted-foreground mb-4" />
                 <h3 className="text-lg font-semibold mb-2">No posts yet</h3>
@@ -368,7 +368,7 @@ export function CommunityFeed() {
               <Card key={photo.id} className="overflow-hidden">
                 <CardContent className="p-0">
                   {/* Header */}
-                  <div className="p-4 flex items-center gap-3">
+                  <div className="p-3 flex items-center gap-3">
                     <UserAvatar 
                       name={photo.author_name} 
                       size="md"
@@ -380,7 +380,6 @@ export function CommunityFeed() {
                         {new Date(photo.created_at).toLocaleDateString('en-US', {
                           month: 'short',
                           day: 'numeric',
-                          year: 'numeric',
                           hour: '2-digit',
                           minute: '2-digit'
                         })}
@@ -388,19 +387,22 @@ export function CommunityFeed() {
                     </div>
                   </div>
 
-                  {/* Image */}
-                  <div className="w-full aspect-square bg-muted">
-                    <img 
-                      src={photo.url} 
-                      alt={photo.caption || "Community photo"} 
-                      className="w-full h-full object-cover"
-                    />
-                  </div>
+                  {/* Image (if present) */}
+                  {photo.url && (
+                    <div className="w-full bg-muted" style={{ maxHeight: '70vh' }}>
+                      <img 
+                        src={photo.url} 
+                        alt={photo.caption || "Community photo"} 
+                        className="w-full h-full object-cover"
+                        style={{ maxHeight: '70vh' }}
+                      />
+                    </div>
+                  )}
 
                   {/* Actions & Content */}
-                  <div className="p-4 space-y-3">
+                  <div className="p-3 space-y-2">
                     {/* Like & Comment buttons */}
-                    <div className="flex items-center gap-4">
+                    <div className="flex items-center gap-3">
                       <Button
                         variant="ghost"
                         size="sm"
@@ -408,7 +410,7 @@ export function CommunityFeed() {
                         onClick={() => handleLike(photo.id)}
                       >
                         <Heart 
-                          className={`h-6 w-6 ${photo.user_has_liked ? 'fill-red-500 text-red-500' : 'text-foreground'}`} 
+                          className={`h-5 w-5 ${photo.user_has_liked ? 'fill-red-500 text-red-500' : 'text-foreground'}`} 
                         />
                       </Button>
                       <Button
@@ -417,7 +419,7 @@ export function CommunityFeed() {
                         className="h-auto p-0 hover:bg-transparent"
                         onClick={() => handleToggleComments(photo.id)}
                       >
-                        <MessageCircle className="h-6 w-6" />
+                        <MessageCircle className="h-5 w-5" />
                       </Button>
                     </div>
 
@@ -448,7 +450,7 @@ export function CommunityFeed() {
 
                     {/* Comments section */}
                     {expandedComments.has(photo.id) && (
-                      <div className="space-y-3 pt-2 border-t">
+                      <div className="space-y-2 pt-2 border-t">
                         {photoComments[photo.id]?.length > 0 ? (
                           <div className="space-y-2 max-h-60 overflow-y-auto">
                             {photoComments[photo.id].map((comment) => (
@@ -460,10 +462,10 @@ export function CommunityFeed() {
                                 />
                                 <div className="flex-1 min-w-0">
                                   <p className="text-sm">
-                                    <span className="font-semibold mr-2">{comment.commenter_name}</span>
+                                    <span className="font-semibold mr-1">{comment.commenter_name}</span>
                                     {comment.text}
                                   </p>
-                                  <p className="text-xs text-muted-foreground mt-1">
+                                  <p className="text-xs text-muted-foreground mt-0.5">
                                     {new Date(comment.created_at).toLocaleDateString('en-US', {
                                       month: 'short',
                                       day: 'numeric',
@@ -480,7 +482,7 @@ export function CommunityFeed() {
                         )}
 
                         {/* Add comment input */}
-                        <div className="flex gap-2">
+                        <div className="flex gap-2 pt-1">
                           <Textarea
                             placeholder="Add a comment..."
                             value={newComment[photo.id] || ''}

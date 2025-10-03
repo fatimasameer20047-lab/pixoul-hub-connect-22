@@ -30,7 +30,7 @@ export function StaffSidebar() {
 
   const staffItems = [
     { title: "Dashboard", url: "/staff", icon: Home, show: true },
-    { title: "Home", url: "/", icon: Users, show: true },
+    { title: "Home", url: "/staff/home", icon: Users, show: true },
     { title: "Room Management", url: "/staff/rooms", icon: Settings, show: canManageRooms },
     { title: "Events Management", url: "/staff/events", icon: Calendar, show: canManageEvents },
     { title: "Snacks Management", url: "/staff/snacks", icon: Coffee, show: canManageSnacks },

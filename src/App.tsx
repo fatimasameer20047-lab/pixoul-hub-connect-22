@@ -22,6 +22,7 @@ import Support from "./pages/Support";
 import Announcements from "./pages/Announcements";
 import NotFound from "./pages/NotFound";
 import StaffDashboard from "./pages/staff/StaffDashboard";
+import StaffHome from "./pages/staff/StaffHome";
 import StaffRooms from "./pages/staff/StaffRooms";
 import StaffEvents from "./pages/staff/StaffEvents";
 import StaffSnacks from "./pages/staff/StaffSnacks";
@@ -230,6 +231,13 @@ const AppRoutes = () => {
         <StaffRoute>
           <StaffLayout>
             <StaffDashboard />
+          </StaffLayout>
+        </StaffRoute>
+      } />
+      <Route path="/staff/home" element={
+        <StaffRoute>
+          <StaffLayout>
+            <StaffHome />
           </StaffLayout>
         </StaffRoute>
       } />
