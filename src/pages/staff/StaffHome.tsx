@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
 import { Skeleton } from '@/components/ui/skeleton';
 import { CommunityFeed } from '@/components/community/CommunityFeed';
+import { FromPixoulRow } from '@/components/community/FromPixoulRow';
 
 const StaffHome = () => {
   const [isLoading, setIsLoading] = useState(true);
@@ -40,6 +41,9 @@ const StaffHome = () => {
           </p>
         </div>
       </section>
+
+      {/* From Pixoul Row */}
+      <FromPixoulRow />
 
       {/* Community Feed */}
       <CommunityFeed />

@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
 import { Skeleton } from '@/components/ui/skeleton';
 import { CommunityFeed } from '@/components/community/CommunityFeed';
+import { FromPixoulRow } from '@/components/community/FromPixoulRow';
 
 const Index = () => {
   const [isLoading, setIsLoading] = useState(true);
@@ -41,6 +42,9 @@ const Index = () => {
           </p>
         </div>
       </section>
+
+      {/* From Pixoul Row */}
+      <FromPixoulRow />
 
       {/* Community Feed */}
       <CommunityFeed />

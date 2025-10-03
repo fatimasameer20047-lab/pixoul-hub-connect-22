@@ -9,6 +9,7 @@ import { useAuth } from '@/contexts/AuthContext';
 import { toast } from 'sonner';
 import { UserAvatar } from '@/components/gallery/UserAvatar';
 import { Skeleton } from '@/components/ui/skeleton';
+import { CommentsModal } from './CommentsModal';
 
 interface CommunityPhoto {
   id: string;
@@ -41,6 +42,7 @@ export function CommunityFeed() {
   const [photoComments, setPhotoComments] = useState<Record<string, PhotoComment[]>>({});
   const [newComment, setNewComment] = useState<Record<string, string>>({});
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [commentsModalPhotoId, setCommentsModalPhotoId] = useState<string | null>(null);
 
   useEffect(() => {
     fetchPhotos();
@@ -441,7 +443,7 @@ export function CommunityFeed() {
                     {/* View comments link */}
                     {photo.comment_count > 0 && !expandedComments.has(photo.id) && (
                       <button
-                        onClick={() => handleToggleComments(photo.id)}
+                        onClick={() => setCommentsModalPhotoId(photo.id)}
                         className="text-sm text-muted-foreground hover:text-foreground"
                       >
                         View all {photo.comment_count} {photo.comment_count === 1 ? 'comment' : 'comments'}
@@ -513,6 +515,17 @@ export function CommunityFeed() {
           )}
         </TabsContent>
       </Tabs>
+
+      <CommentsModal
+        isOpen={!!commentsModalPhotoId}
+        onClose={() => setCommentsModalPhotoId(null)}
+        photoId={commentsModalPhotoId || ''}
+        photoCaption={photos.find(p => p.id === commentsModalPhotoId)?.caption}
+        onCommentAdded={() => {
+          // Refresh the photo to update comment count
+          fetchPhotos();
+        }}
+      />
     </div>
   );
 }
