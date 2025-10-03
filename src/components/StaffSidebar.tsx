@@ -1,4 +1,4 @@
-import { Home, Calendar, BookOpen, Coffee, Image, HelpCircle, Bell, Settings, LogOut } from "lucide-react";
+import { Home, Calendar, BookOpen, Coffee, Image, HelpCircle, Bell, Settings, LogOut, Users } from "lucide-react";
 import { NavLink, useNavigate } from "react-router-dom";
 import {
   Sidebar,
@@ -30,6 +30,7 @@ export function StaffSidebar() {
 
   const staffItems = [
     { title: "Dashboard", url: "/staff", icon: Home, show: true },
+    { title: "Home", url: "/", icon: Users, show: true },
     { title: "Room Management", url: "/staff/rooms", icon: Settings, show: canManageRooms },
     { title: "Events Management", url: "/staff/events", icon: Calendar, show: canManageEvents },
     { title: "Snacks Management", url: "/staff/snacks", icon: Coffee, show: canManageSnacks },
