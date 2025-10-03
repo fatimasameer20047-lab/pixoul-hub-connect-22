@@ -42,34 +42,47 @@ export function CommentsModal({ isOpen, onClose, photoId, photoCaption, onCommen
   const fetchComments = async () => {
     setIsLoading(true);
     try {
-      const { data, error } = await supabase
+      // Fetch comments
+      const { data: commentsData, error: commentsError } = await supabase
         .from('photo_comments')
-        .select(`
-          id,
-          text,
-          created_at,
-          user_id,
-          profiles:user_id (
-            full_name,
-            name,
-            avatar_color
-          )
-        `)
+        .select('id, text, created_at, user_id')
         .eq('photo_id', photoId)
         .order('created_at', { ascending: true });
 
-      if (error) throw error;
+      if (commentsError) throw commentsError;
 
-      const commentsData: Comment[] = (data || []).map((comment: any) => ({
-        id: comment.id,
-        text: comment.text,
-        created_at: comment.created_at,
-        user_id: comment.user_id,
-        commenter_name: comment.profiles?.full_name || comment.profiles?.name || 'Anonymous',
-        commenter_avatar_color: comment.profiles?.avatar_color || '#6366F1',
-      }));
+      if (!commentsData || commentsData.length === 0) {
+        setComments([]);
+        return;
+      }
 
-      setComments(commentsData);
+      // Fetch profiles for all commenters
+      const userIds = [...new Set(commentsData.map(c => c.user_id))];
+      const { data: profilesData, error: profilesError } = await supabase
+        .from('profiles')
+        .select('user_id, full_name, name, avatar_color')
+        .in('user_id', userIds);
+
+      if (profilesError) throw profilesError;
+
+      // Map profiles to comments
+      const profilesMap = new Map(
+        (profilesData || []).map(p => [p.user_id, p])
+      );
+
+      const enrichedComments: Comment[] = commentsData.map((comment) => {
+        const profile = profilesMap.get(comment.user_id);
+        return {
+          id: comment.id,
+          text: comment.text,
+          created_at: comment.created_at,
+          user_id: comment.user_id,
+          commenter_name: profile?.full_name || profile?.name || 'Anonymous',
+          commenter_avatar_color: profile?.avatar_color || '#6366F1',
+        };
+      });
+
+      setComments(enrichedComments);
     } catch (error) {
       console.error('Error fetching comments:', error);
       toast.error('Failed to load comments');

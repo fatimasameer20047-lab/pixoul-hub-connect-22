@@ -462,6 +462,42 @@ export type Database = {
           },
         ]
       }
+      pixoul_posts: {
+        Row: {
+          author_id: string
+          caption: string
+          created_at: string
+          id: string
+          media_urls: string[] | null
+          status: string
+          title: string | null
+          type: string
+          updated_at: string
+        }
+        Insert: {
+          author_id: string
+          caption: string
+          created_at?: string
+          id?: string
+          media_urls?: string[] | null
+          status?: string
+          title?: string | null
+          type: string
+          updated_at?: string
+        }
+        Update: {
+          author_id?: string
+          caption?: string
+          created_at?: string
+          id?: string
+          media_urls?: string[] | null
+          status?: string
+          title?: string | null
+          type?: string
+          updated_at?: string
+        }
+        Relationships: []
+      }
       profiles: {
         Row: {
           avatar_color: string | null

@@ -30,6 +30,8 @@ import StaffGallery from "./pages/staff/StaffGallery";
 import StaffGuides from "./pages/staff/StaffGuides";
 import StaffAnnouncements from "./pages/staff/StaffAnnouncements";
 import StaffSupport from "./pages/staff/StaffSupport";
+import StaffPixoulPosts from "./pages/staff/StaffPixoulPosts";
+import FromPixoul from "./pages/FromPixoul";
 
 const queryClient = new QueryClient();
 
@@ -225,6 +227,13 @@ const AppRoutes = () => {
           </AppLayout>
         </GuestRoute>
       } />
+      <Route path="/from-pixoul" element={
+        <GuestRoute>
+          <AppLayout>
+            <FromPixoul />
+          </AppLayout>
+        </GuestRoute>
+      } />
 
       {/* Staff Routes */}
       <Route path="/staff" element={
@@ -287,6 +296,13 @@ const AppRoutes = () => {
         <StaffRoute>
           <StaffLayout>
             <StaffSupport />
+          </StaffLayout>
+        </StaffRoute>
+      } />
+      <Route path="/staff/pixoul-posts" element={
+        <StaffRoute>
+          <StaffLayout>
+            <StaffPixoulPosts />
           </StaffLayout>
         </StaffRoute>
       } />
