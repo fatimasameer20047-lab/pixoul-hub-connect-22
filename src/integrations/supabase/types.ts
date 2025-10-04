@@ -470,8 +470,7 @@ export type Database = {
           id: string
           images: Json
           pinned: boolean
-          published_at: string | null
-          status: string
+          published: boolean
           title: string | null
           type: string
           updated_at: string
@@ -483,8 +482,7 @@ export type Database = {
           id?: string
           images?: Json
           pinned?: boolean
-          published_at?: string | null
-          status?: string
+          published?: boolean
           title?: string | null
           type: string
           updated_at?: string
@@ -496,8 +494,7 @@ export type Database = {
           id?: string
           images?: Json
           pinned?: boolean
-          published_at?: string | null
-          status?: string
+          published?: boolean
           title?: string | null
           type?: string
           updated_at?: string
