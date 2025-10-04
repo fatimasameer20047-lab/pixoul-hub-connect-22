@@ -28,13 +28,12 @@ interface PixoulPost {
   author_id: string;
   created_at: string;
   updated_at: string;
-  status: 'draft' | 'published';
+  published: boolean;
   type: 'event' | 'program' | 'announcement' | 'post';
   title: string | null;
   caption: string;
   images: string[];
   pinned: boolean;
-  published_at: string | null;
 }
 
 const StaffPixoulPosts = () => {
@@ -50,7 +49,7 @@ const StaffPixoulPosts = () => {
     type: 'post' as PixoulPost['type'],
     title: '',
     caption: '',
-    status: 'draft' as PixoulPost['status'],
+    published: true,
     images: [] as string[],
     pinned: false,
   });
@@ -140,15 +139,10 @@ const StaffPixoulPosts = () => {
           type: formData.type,
           title: formData.title || null,
           caption: formData.caption,
-          status: formData.status,
+          published: formData.published,
           images: formData.images,
           pinned: formData.pinned,
         };
-
-        // Set published_at when publishing for the first time
-        if (formData.status === 'published' && !editingPost.published_at) {
-          updateData.published_at = new Date().toISOString();
-        }
 
         const { error } = await supabase
           .from('pixoul_posts')
@@ -166,15 +160,10 @@ const StaffPixoulPosts = () => {
           type: formData.type,
           title: formData.title || null,
           caption: formData.caption,
-          status: formData.status,
+          published: formData.published,
           images: formData.images,
           pinned: formData.pinned,
         };
-
-        // Set published_at if publishing immediately
-        if (formData.status === 'published') {
-          insertData.published_at = new Date().toISOString();
-        }
 
         const { error } = await supabase
           .from('pixoul_posts')
@@ -216,21 +205,15 @@ const StaffPixoulPosts = () => {
 
   const togglePublish = async (post: PixoulPost) => {
     try {
-      const newStatus = post.status === 'published' ? 'draft' : 'published';
-      const updateData: any = { status: newStatus };
-      
-      // Set published_at when publishing for the first time
-      if (newStatus === 'published' && !post.published_at) {
-        updateData.published_at = new Date().toISOString();
-      }
+      const newPublished = !post.published;
       
       const { error } = await supabase
         .from('pixoul_posts')
-        .update(updateData)
+        .update({ published: newPublished })
         .eq('id', post.id);
 
       if (error) throw error;
-      toast.success(`Post ${newStatus === 'published' ? 'published' : 'unpublished'}`);
+      toast.success(`Post ${newPublished ? 'published' : 'unpublished'}`);
       fetchPosts();
     } catch (error) {
       console.error('Error toggling publish:', error);
@@ -244,7 +227,7 @@ const StaffPixoulPosts = () => {
       type: post.type,
       title: post.title || '',
       caption: post.caption,
-      status: post.status,
+      published: post.published,
       images: post.images || [],
       pinned: post.pinned,
     });
@@ -257,7 +240,7 @@ const StaffPixoulPosts = () => {
       type: 'post',
       title: '',
       caption: '',
-      status: 'draft',
+      published: true,
       images: [],
       pinned: false,
     });
@@ -387,22 +370,17 @@ const StaffPixoulPosts = () => {
                   </label>
                 </div>
 
-                <div>
-                  <label className="text-sm font-medium mb-2 block">Status</label>
-                  <Select
-                    value={formData.status}
-                    onValueChange={(value: PixoulPost['status']) =>
-                      setFormData(prev => ({ ...prev, status: value }))
-                    }
-                  >
-                    <SelectTrigger>
-                      <SelectValue />
-                    </SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="draft">Draft</SelectItem>
-                      <SelectItem value="published">Published</SelectItem>
-                    </SelectContent>
-                  </Select>
+                <div className="flex items-center gap-2">
+                  <input
+                    type="checkbox"
+                    id="published"
+                    checked={formData.published}
+                    onChange={(e) => setFormData(prev => ({ ...prev, published: e.target.checked }))}
+                    className="h-4 w-4"
+                  />
+                  <label htmlFor="published" className="text-sm font-medium">
+                    Published
+                  </label>
                 </div>
 
                 <div className="flex gap-2">
@@ -432,8 +410,8 @@ const StaffPixoulPosts = () => {
               <Card key={post.id} className="p-4">
                 <div className="flex justify-between items-start mb-2">
                   <div className="flex gap-2">
-                    <Badge variant={post.status === 'published' ? 'default' : 'secondary'}>
-                      {post.status}
+                    <Badge variant={post.published ? 'default' : 'secondary'}>
+                      {post.published ? 'Published' : 'Draft'}
                     </Badge>
                     <Badge variant="outline">{post.type}</Badge>
                     {post.pinned && <Badge variant="destructive">Pinned</Badge>}
@@ -444,7 +422,7 @@ const StaffPixoulPosts = () => {
                       variant="outline"
                       onClick={() => togglePublish(post)}
                     >
-                      {post.status === 'published' ? 'Unpublish' : 'Publish'}
+                      {post.published ? 'Unpublish' : 'Publish'}
                     </Button>
                     <Button
                       size="sm"
@@ -478,11 +456,6 @@ const StaffPixoulPosts = () => {
                 )}
                 <p className="text-xs text-muted-foreground mt-2">
                   {new Date(post.created_at).toLocaleString()}
-                  {post.published_at && post.status === 'published' && (
-                    <span className="ml-2">
-                      • Published: {new Date(post.published_at).toLocaleString()}
-                    </span>
-                  )}
                 </p>
               </Card>
             ))

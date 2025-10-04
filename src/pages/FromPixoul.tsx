@@ -12,6 +12,7 @@ interface PixoulPost {
   images: string[];
   created_at: string;
   pinned: boolean;
+  published: boolean;
 }
 
 const FromPixoul = () => {
@@ -27,7 +28,7 @@ const FromPixoul = () => {
       const { data, error } = await supabase
         .from('pixoul_posts')
         .select('*')
-        .eq('status', 'published')
+        .eq('published', true)
         .order('pinned', { ascending: false })
         .order('created_at', { ascending: false });
 

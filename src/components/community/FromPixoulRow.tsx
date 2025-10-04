@@ -13,6 +13,7 @@ interface PixoulPost {
   images: string[];
   created_at: string;
   pinned: boolean;
+  published: boolean;
 }
 
 export function FromPixoulRow() {
@@ -28,10 +29,10 @@ export function FromPixoulRow() {
       const { data, error } = await supabase
         .from('pixoul_posts')
         .select('*')
-        .eq('status', 'published')
+        .eq('published', true)
         .order('pinned', { ascending: false })
         .order('created_at', { ascending: false })
-        .limit(10);
+        .limit(12);
 
       if (error) throw error;
       setPosts((data as PixoulPost[]) || []);
