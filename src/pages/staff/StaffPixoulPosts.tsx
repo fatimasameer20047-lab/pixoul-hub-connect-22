@@ -65,6 +65,7 @@ const StaffPixoulPosts = () => {
       const { data, error } = await supabase
         .from('pixoul_posts')
         .select('*')
+        .order('pinned', { ascending: false })
         .order('created_at', { ascending: false });
 
       if (error) throw error;
@@ -203,21 +204,21 @@ const StaffPixoulPosts = () => {
     }
   };
 
-  const togglePublish = async (post: PixoulPost) => {
+  const togglePin = async (post: PixoulPost) => {
     try {
-      const newPublished = !post.published;
+      const newPinned = !post.pinned;
       
       const { error } = await supabase
         .from('pixoul_posts')
-        .update({ published: newPublished })
+        .update({ pinned: newPinned })
         .eq('id', post.id);
 
       if (error) throw error;
-      toast.success(`Post ${newPublished ? 'published' : 'unpublished'}`);
+      toast.success(newPinned ? 'Pinned to top' : 'Unpinned');
       fetchPosts();
     } catch (error) {
-      console.error('Error toggling publish:', error);
-      toast.error('Failed to update post status');
+      console.error('Error toggling pin:', error);
+      toast.error('Failed to update pin status');
     }
   };
 
@@ -420,9 +421,9 @@ const StaffPixoulPosts = () => {
                     <Button
                       size="sm"
                       variant="outline"
-                      onClick={() => togglePublish(post)}
+                      onClick={() => togglePin(post)}
                     >
-                      {post.published ? 'Unpublish' : 'Publish'}
+                      {post.pinned ? 'Unpin' : 'Pin'}
                     </Button>
                     <Button
                       size="sm"
