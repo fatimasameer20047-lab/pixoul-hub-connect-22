@@ -1,7 +1,11 @@
 import React, { useEffect, useState } from 'react';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
-import { Coffee, Sandwich, Cookie, Droplets } from 'lucide-react';
+import { Button } from '@/components/ui/button';
+import { Coffee, Sandwich, Cookie, Droplets, Plus, Minus } from 'lucide-react';
+import { CartDrawer } from '@/components/snacks/CartDrawer';
+import { useCart } from '@/hooks/use-cart';
+import { useState } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import { formatPriceAEDUSD } from '@/lib/price-formatter';
 
@@ -22,6 +26,8 @@ const iconMap: Record<string, typeof Coffee> = {
 
 export default function Snacks() {
   const [menuItems, setMenuItems] = useState<SnackItem[]>([]);
+  const [quantities, setQuantities] = useState<Record<string, number>>({});
+  const { addToCart } = useCart();
 
   useEffect(() => {
     fetchSnacks();
@@ -61,11 +67,14 @@ export default function Snacks() {
 
   return (
     <div className="p-6 space-y-6">
-      <div className="space-y-2">
-        <h1 className="text-3xl font-bold tracking-tight">Snacks & Drinks</h1>
-        <p className="text-muted-foreground">
-          Order refreshments for your stay
-        </p>
+      <div className="flex justify-between items-center">
+        <div className="space-y-2">
+          <h1 className="text-3xl font-bold tracking-tight">Snacks & Drinks</h1>
+          <p className="text-muted-foreground">
+            Order refreshments for your stay
+          </p>
+        </div>
+        <CartDrawer />
       </div>
 
       <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
@@ -82,19 +91,51 @@ export default function Snacks() {
                   />
                 </div>
               )}
-              <CardHeader className="flex flex-row items-center space-y-0 pb-2">
-                <Icon className="h-6 w-6 text-muted-foreground" />
-                <div className="ml-4 flex-1">
-                  <CardTitle className="text-lg">{item.name}</CardTitle>
-                  <CardDescription>{item.category}</CardDescription>
-                </div>
-                <div className="text-right">
-                  <div className="text-2xl font-bold">{formatPriceAEDUSD(item.price)}</div>
-                  <Badge variant={item.available ? 'default' : 'secondary'}>
-                    {item.available ? 'Available' : 'Out of Stock'}
-                  </Badge>
+              <CardHeader>
+                <div className="flex items-start justify-between">
+                  <div className="flex items-center gap-3">
+                    <Icon className="h-6 w-6 text-muted-foreground" />
+                    <div>
+                      <CardTitle className="text-lg">{item.name}</CardTitle>
+                      <CardDescription>{item.category}</CardDescription>
+                    </div>
+                  </div>
+                  <div className="text-right">
+                    <div className="text-2xl font-bold">{formatPriceAEDUSD(item.price)}</div>
+                    <Badge variant={item.available ? 'default' : 'secondary'}>
+                      {item.available ? 'Available' : 'Out of Stock'}
+                    </Badge>
+                  </div>
                 </div>
               </CardHeader>
+              <CardContent>
+                <div className="flex items-center gap-2">
+                  <Button
+                    size="icon"
+                    variant="outline"
+                    disabled={!item.available || (quantities[item.id] || 1) <= 1}
+                    onClick={() => setQuantities({ ...quantities, [item.id]: Math.max(1, (quantities[item.id] || 1) - 1) })}
+                  >
+                    <Minus className="h-4 w-4" />
+                  </Button>
+                  <span className="w-12 text-center">{quantities[item.id] || 1}</span>
+                  <Button
+                    size="icon"
+                    variant="outline"
+                    disabled={!item.available}
+                    onClick={() => setQuantities({ ...quantities, [item.id]: (quantities[item.id] || 1) + 1 })}
+                  >
+                    <Plus className="h-4 w-4" />
+                  </Button>
+                  <Button
+                    className="flex-1 ml-2"
+                    disabled={!item.available}
+                    onClick={() => addToCart(item, quantities[item.id] || 1)}
+                  >
+                    Add to Cart
+                  </Button>
+                </div>
+              </CardContent>
             </Card>
           );
         })}

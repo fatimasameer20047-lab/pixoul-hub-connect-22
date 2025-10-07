@@ -6,6 +6,7 @@ import { BrowserRouter, Routes, Route, Navigate } from "react-router-dom";
 import { SidebarProvider, SidebarTrigger } from "@/components/ui/sidebar";
 import { AuthProvider, useAuth } from "@/contexts/AuthContext";
 import { StaffProvider, useStaff } from "@/contexts/StaffContext";
+import { CartProvider } from "@/hooks/use-cart";
 import { AppSidebar } from "@/components/AppSidebar";
 import { StaffSidebar } from "@/components/StaffSidebar";
 import { SupportButton } from "@/components/SupportButton";
@@ -316,13 +317,15 @@ const App = () => (
   <QueryClientProvider client={queryClient}>
     <AuthProvider>
       <StaffProvider>
-        <TooltipProvider>
-          <Toaster />
-          <Sonner />
-          <BrowserRouter>
-            <AppRoutes />
-          </BrowserRouter>
-        </TooltipProvider>
+        <CartProvider>
+          <TooltipProvider>
+            <Toaster />
+            <Sonner />
+            <BrowserRouter>
+              <AppRoutes />
+            </BrowserRouter>
+          </TooltipProvider>
+        </CartProvider>
       </StaffProvider>
     </AuthProvider>
   </QueryClientProvider>
