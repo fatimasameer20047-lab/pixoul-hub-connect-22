@@ -5,7 +5,6 @@ import { Button } from '@/components/ui/button';
 import { Coffee, Sandwich, Cookie, Droplets, Plus, Minus } from 'lucide-react';
 import { CartDrawer } from '@/components/snacks/CartDrawer';
 import { useCart } from '@/hooks/use-cart';
-import { useState } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import { formatPriceAEDUSD } from '@/lib/price-formatter';
 
