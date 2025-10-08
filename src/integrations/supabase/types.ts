@@ -845,12 +845,13 @@ export type Database = {
       snacks: {
         Row: {
           available: boolean | null
-          category: string
+          category: Database["public"]["Enums"]["snack_category"]
           created_at: string | null
           description: string | null
           id: string
           image_url: string | null
           name: string
+          pinned: boolean
           prep_time_min: number | null
           price: number
           stock_qty: number | null
@@ -858,12 +859,13 @@ export type Database = {
         }
         Insert: {
           available?: boolean | null
-          category: string
+          category: Database["public"]["Enums"]["snack_category"]
           created_at?: string | null
           description?: string | null
           id?: string
           image_url?: string | null
           name: string
+          pinned?: boolean
           prep_time_min?: number | null
           price: number
           stock_qty?: number | null
@@ -871,12 +873,13 @@ export type Database = {
         }
         Update: {
           available?: boolean | null
-          category?: string
+          category?: Database["public"]["Enums"]["snack_category"]
           created_at?: string | null
           description?: string | null
           id?: string
           image_url?: string | null
           name?: string
+          pinned?: boolean
           prep_time_min?: number | null
           price?: number
           stock_qty?: number | null
@@ -993,6 +996,7 @@ export type Database = {
         | "snacks"
         | "gallery"
         | "guides"
+      snack_category: "Food" | "Drinks" | "Sweets"
     }
     CompositeTypes: {
       [_ in never]: never
@@ -1131,6 +1135,7 @@ export const Constants = {
         "gallery",
         "guides",
       ],
+      snack_category: ["Food", "Drinks", "Sweets"],
     },
   },
 } as const

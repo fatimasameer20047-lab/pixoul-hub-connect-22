@@ -2,7 +2,8 @@ import React, { useEffect, useState } from 'react';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
-import { Coffee, Sandwich, Cookie, Droplets, Plus, Minus } from 'lucide-react';
+import { Tabs, TabsList, TabsTrigger } from '@/components/ui/tabs';
+import { Coffee, Sandwich, Cookie, Droplets, Plus, Minus, Utensils, Wine, Candy } from 'lucide-react';
 import { CartDrawer } from '@/components/snacks/CartDrawer';
 import { useCart } from '@/hooks/use-cart';
 import { supabase } from '@/integrations/supabase/client';
@@ -14,18 +15,20 @@ interface SnackItem {
   price: number;
   category: string;
   available: boolean;
+  pinned: boolean;
   image_url?: string;
 }
 
 const iconMap: Record<string, typeof Coffee> = {
-  Beverages: Droplets,
-  Food: Sandwich,
-  Snacks: Cookie,
+  Food: Utensils,
+  Drinks: Droplets,
+  Sweets: Candy,
 };
 
 export default function Snacks() {
   const [menuItems, setMenuItems] = useState<SnackItem[]>([]);
   const [quantities, setQuantities] = useState<Record<string, number>>({});
+  const [selectedCategory, setSelectedCategory] = useState<string>('All');
   const { addToCart } = useCart();
 
   useEffect(() => {
@@ -56,12 +59,86 @@ export default function Snacks() {
     const { data } = await supabase
       .from('snacks')
       .select('*')
+      .order('pinned', { ascending: false })
       .order('category', { ascending: true })
       .order('name', { ascending: true });
 
     if (data) {
       setMenuItems(data);
     }
+  };
+
+  const pinnedItems = menuItems.filter(item => item.pinned);
+  const filteredItems = selectedCategory === 'All' 
+    ? menuItems 
+    : menuItems.filter(item => item.category === selectedCategory);
+
+  const sortedFilteredItems = [...filteredItems].sort((a, b) => {
+    if (a.pinned && !b.pinned) return -1;
+    if (!a.pinned && b.pinned) return 1;
+    return 0;
+  });
+
+  const renderItemCard = (item: SnackItem) => {
+    const Icon = iconMap[item.category] || Coffee;
+    return (
+      <Card key={item.id} className={!item.available ? 'opacity-50' : ''}>
+        {item.image_url && (
+          <div className="aspect-video w-full overflow-hidden">
+            <img 
+              src={item.image_url} 
+              alt={item.name}
+              className="w-full h-full object-cover"
+            />
+          </div>
+        )}
+        <CardHeader>
+          <div className="flex items-start justify-between">
+            <div className="flex items-center gap-3">
+              <Icon className="h-6 w-6 text-muted-foreground" />
+              <div>
+                <CardTitle className="text-lg">{item.name}</CardTitle>
+                <CardDescription>{item.category}</CardDescription>
+              </div>
+            </div>
+            <div className="text-right">
+              <div className="text-2xl font-bold">{formatPriceAEDUSD(item.price)}</div>
+              <Badge variant={item.available ? 'default' : 'secondary'}>
+                {item.available ? 'Available' : 'Out of Stock'}
+              </Badge>
+            </div>
+          </div>
+        </CardHeader>
+        <CardContent>
+          <div className="flex items-center gap-2">
+            <Button
+              size="icon"
+              variant="outline"
+              disabled={!item.available || (quantities[item.id] || 1) <= 1}
+              onClick={() => setQuantities({ ...quantities, [item.id]: Math.max(1, (quantities[item.id] || 1) - 1) })}
+            >
+              <Minus className="h-4 w-4" />
+            </Button>
+            <span className="w-12 text-center">{quantities[item.id] || 1}</span>
+            <Button
+              size="icon"
+              variant="outline"
+              disabled={!item.available}
+              onClick={() => setQuantities({ ...quantities, [item.id]: (quantities[item.id] || 1) + 1 })}
+            >
+              <Plus className="h-4 w-4" />
+            </Button>
+            <Button
+              className="flex-1 ml-2"
+              disabled={!item.available}
+              onClick={() => addToCart(item, quantities[item.id] || 1)}
+            >
+              Add to Cart
+            </Button>
+          </div>
+        </CardContent>
+      </Card>
+    );
   };
 
   return (
@@ -76,68 +153,26 @@ export default function Snacks() {
         <CartDrawer />
       </div>
 
+      <Tabs value={selectedCategory} onValueChange={setSelectedCategory} className="w-full">
+        <TabsList className="grid w-full grid-cols-4">
+          <TabsTrigger value="All">All</TabsTrigger>
+          <TabsTrigger value="Food">Food</TabsTrigger>
+          <TabsTrigger value="Drinks">Drinks</TabsTrigger>
+          <TabsTrigger value="Sweets">Sweets</TabsTrigger>
+        </TabsList>
+      </Tabs>
+
+      {pinnedItems.length > 0 && (
+        <div className="space-y-4">
+          <h2 className="text-2xl font-bold tracking-tight">Most Popular</h2>
+          <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
+            {pinnedItems.map(renderItemCard)}
+          </div>
+        </div>
+      )}
+
       <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
-        {menuItems.map((item) => {
-          const Icon = iconMap[item.category] || Coffee;
-          return (
-            <Card key={item.id} className={!item.available ? 'opacity-50' : ''}>
-              {item.image_url && (
-                <div className="aspect-video w-full overflow-hidden">
-                  <img 
-                    src={item.image_url} 
-                    alt={item.name}
-                    className="w-full h-full object-cover"
-                  />
-                </div>
-              )}
-              <CardHeader>
-                <div className="flex items-start justify-between">
-                  <div className="flex items-center gap-3">
-                    <Icon className="h-6 w-6 text-muted-foreground" />
-                    <div>
-                      <CardTitle className="text-lg">{item.name}</CardTitle>
-                      <CardDescription>{item.category}</CardDescription>
-                    </div>
-                  </div>
-                  <div className="text-right">
-                    <div className="text-2xl font-bold">{formatPriceAEDUSD(item.price)}</div>
-                    <Badge variant={item.available ? 'default' : 'secondary'}>
-                      {item.available ? 'Available' : 'Out of Stock'}
-                    </Badge>
-                  </div>
-                </div>
-              </CardHeader>
-              <CardContent>
-                <div className="flex items-center gap-2">
-                  <Button
-                    size="icon"
-                    variant="outline"
-                    disabled={!item.available || (quantities[item.id] || 1) <= 1}
-                    onClick={() => setQuantities({ ...quantities, [item.id]: Math.max(1, (quantities[item.id] || 1) - 1) })}
-                  >
-                    <Minus className="h-4 w-4" />
-                  </Button>
-                  <span className="w-12 text-center">{quantities[item.id] || 1}</span>
-                  <Button
-                    size="icon"
-                    variant="outline"
-                    disabled={!item.available}
-                    onClick={() => setQuantities({ ...quantities, [item.id]: (quantities[item.id] || 1) + 1 })}
-                  >
-                    <Plus className="h-4 w-4" />
-                  </Button>
-                  <Button
-                    className="flex-1 ml-2"
-                    disabled={!item.available}
-                    onClick={() => addToCart(item, quantities[item.id] || 1)}
-                  >
-                    Add to Cart
-                  </Button>
-                </div>
-              </CardContent>
-            </Card>
-          );
-        })}
+        {sortedFilteredItems.map(renderItemCard)}
       </div>
     </div>
   );
