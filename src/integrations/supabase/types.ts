@@ -940,6 +940,16 @@ export type Database = {
       [_ in never]: never
     }
     Functions: {
+      check_booking_conflict: {
+        Args: {
+          p_booking_date: string
+          p_booking_id?: string
+          p_end_time: string
+          p_room_id: string
+          p_start_time: string
+        }
+        Returns: boolean
+      }
       create_staff_user_with_role: {
         Args: {
           user_email: string
@@ -948,6 +958,13 @@ export type Database = {
           user_role: Database["public"]["Enums"]["app_role"]
         }
         Returns: string
+      }
+      get_available_slots: {
+        Args: { p_booking_date: string; p_room_id: string }
+        Returns: {
+          end_time: string
+          start_time: string
+        }[]
       }
       has_role: {
         Args: {

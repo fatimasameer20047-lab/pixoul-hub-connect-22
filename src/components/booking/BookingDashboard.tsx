@@ -150,7 +150,20 @@ export function BookingDashboard() {
         .update({ status: newStatus })
         .eq('id', bookingId);
 
-      if (error) throw error;
+      if (error) {
+        // Check if it's a conflict error from the trigger
+        if (error.code === '23P01' || error.message.includes('not available')) {
+          toast({
+            title: "Booking conflict",
+            description: "This room is not available at that time. The time slot may have been booked by another customer.",
+            variant: "destructive",
+          });
+          // Refresh bookings to show current state
+          fetchBookings();
+          return;
+        }
+        throw error;
+      }
 
       toast({
         title: "Status updated",

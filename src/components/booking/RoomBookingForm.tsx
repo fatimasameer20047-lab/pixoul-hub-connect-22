@@ -1,5 +1,5 @@
-import React, { useState } from 'react';
-import { ArrowLeft, Calendar, Clock, CreditCard, MessageCircle } from 'lucide-react';
+import React, { useState, useEffect } from 'react';
+import { ArrowLeft, Calendar, Clock, CreditCard, MessageCircle, AlertCircle } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
@@ -8,6 +8,7 @@ import { Textarea } from '@/components/ui/textarea';
 import { Calendar as CalendarComponent } from '@/components/ui/calendar';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import { Alert, AlertDescription } from '@/components/ui/alert';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/contexts/AuthContext';
 import { useToast } from '@/hooks/use-toast';
@@ -35,6 +36,11 @@ const timeSlots = [
   '16:00', '17:00', '18:00', '19:00', '20:00', '21:00'
 ];
 
+interface AvailableSlot {
+  start_time: string;
+  end_time: string;
+}
+
 export function RoomBookingForm({ room, onBack }: RoomBookingFormProps) {
   const [date, setDate] = useState<Date>();
   const [startTime, setStartTime] = useState('');
@@ -44,8 +50,82 @@ export function RoomBookingForm({ room, onBack }: RoomBookingFormProps) {
   const [contactEmail, setContactEmail] = useState('');
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [showChat, setShowChat] = useState(false);
+  const [availableSlots, setAvailableSlots] = useState<AvailableSlot[]>([]);
+  const [bookedSlots, setBookedSlots] = useState<{start_time: string, end_time: string}[]>([]);
+  const [conflictError, setConflictError] = useState<string | null>(null);
   const { user } = useAuth();
   const { toast } = useToast();
+
+  // Fetch available/booked slots when date changes
+  useEffect(() => {
+    if (date && room.id) {
+      fetchAvailability();
+    }
+  }, [date, room.id]);
+
+  // Subscribe to real-time booking updates
+  useEffect(() => {
+    if (!date || !room.id) return;
+
+    const channel = supabase
+      .channel('room-availability')
+      .on(
+        'postgres_changes',
+        {
+          event: '*',
+          schema: 'public',
+          table: 'room_bookings',
+          filter: `room_id=eq.${room.id}`
+        },
+        () => {
+          fetchAvailability();
+        }
+      )
+      .subscribe();
+
+    return () => {
+      supabase.removeChannel(channel);
+    };
+  }, [date, room.id]);
+
+  const fetchAvailability = async () => {
+    if (!date) return;
+
+    try {
+      // Fetch booked slots
+      const { data: bookings, error } = await supabase
+        .from('room_bookings')
+        .select('start_time, end_time')
+        .eq('room_id', room.id)
+        .eq('booking_date', format(date, 'yyyy-MM-dd'))
+        .eq('status', 'confirmed');
+
+      if (error) throw error;
+
+      setBookedSlots(bookings || []);
+    } catch (error: any) {
+      console.error('Error fetching availability:', error);
+    }
+  };
+
+  const isTimeSlotAvailable = (time: string, durationHours: number) => {
+    if (!bookedSlots.length) return true;
+
+    const [hours, minutes] = time.split(':').map(Number);
+    const startMinutes = hours * 60 + minutes;
+    const endMinutes = startMinutes + (durationHours * 60);
+
+    return !bookedSlots.some(booking => {
+      const [bookingStartHours, bookingStartMins] = booking.start_time.split(':').map(Number);
+      const [bookingEndHours, bookingEndMins] = booking.end_time.split(':').map(Number);
+      
+      const bookingStart = bookingStartHours * 60 + bookingStartMins;
+      const bookingEnd = bookingEndHours * 60 + bookingEndMins;
+
+      // Check for overlap: new.start < existing.end AND new.end > existing.start
+      return startMinutes < bookingEnd && endMinutes > bookingStart;
+    });
+  };
 
   const calculateEndTime = (start: string, hours: number) => {
     const [startHour, startMin] = start.split(':').map(Number);
@@ -62,7 +142,14 @@ export function RoomBookingForm({ room, onBack }: RoomBookingFormProps) {
     e.preventDefault();
     if (!user || !date || !startTime || !duration) return;
 
+    // Check availability before submitting
+    if (!isTimeSlotAvailable(startTime, parseInt(duration))) {
+      setConflictError('This time slot is no longer available. Please choose another time.');
+      return;
+    }
+
     setIsSubmitting(true);
+    setConflictError(null);
 
     try {
       const endTime = calculateEndTime(startTime, parseInt(duration));
@@ -78,12 +165,20 @@ export function RoomBookingForm({ room, onBack }: RoomBookingFormProps) {
           end_time: endTime,
           duration_hours: parseInt(duration),
           total_amount: totalAmount,
+          status: 'confirmed',
           notes,
           contact_phone: contactPhone,
           contact_email: contactEmail,
         });
 
-      if (error) throw error;
+      if (error) {
+        // Check if it's a conflict error from the trigger
+        if (error.code === '23P01' || error.message.includes('not available')) {
+          setConflictError('This room isn\'t available at that time—please choose another slot.');
+          return;
+        }
+        throw error;
+      }
 
       toast({
         title: "Booking confirmed!",
@@ -120,6 +215,13 @@ export function RoomBookingForm({ room, onBack }: RoomBookingFormProps) {
               <CardTitle>Book {room.name}</CardTitle>
             </CardHeader>
             <CardContent>
+              {conflictError && (
+                <Alert variant="destructive" className="mb-4">
+                  <AlertCircle className="h-4 w-4" />
+                  <AlertDescription>{conflictError}</AlertDescription>
+                </Alert>
+              )}
+              
               <form onSubmit={handleSubmit} className="space-y-6">
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                   <div className="space-y-2">
@@ -141,7 +243,12 @@ export function RoomBookingForm({ room, onBack }: RoomBookingFormProps) {
                         <CalendarComponent
                           mode="single"
                           selected={date}
-                          onSelect={setDate}
+                          onSelect={(newDate) => {
+                            setDate(newDate);
+                            setStartTime('');
+                            setDuration('');
+                            setConflictError(null);
+                          }}
                           disabled={(date) => date < new Date()}
                           className="pointer-events-auto"
                         />
@@ -151,32 +258,61 @@ export function RoomBookingForm({ room, onBack }: RoomBookingFormProps) {
 
                   <div className="space-y-2">
                     <Label>Start Time</Label>
-                    <Select value={startTime} onValueChange={setStartTime}>
+                    <Select 
+                      value={startTime} 
+                      onValueChange={(value) => {
+                        setStartTime(value);
+                        setConflictError(null);
+                      }}
+                      disabled={!date}
+                    >
                       <SelectTrigger>
-                        <SelectValue placeholder="Select time" />
+                        <SelectValue placeholder={date ? "Select time" : "Select date first"} />
                       </SelectTrigger>
                       <SelectContent>
-                        {timeSlots.map((time) => (
-                          <SelectItem key={time} value={time}>
-                            {time}
-                          </SelectItem>
-                        ))}
+                        {timeSlots.map((time) => {
+                          const durationNum = parseInt(duration) || 1;
+                          const available = isTimeSlotAvailable(time, durationNum);
+                          return (
+                            <SelectItem 
+                              key={time} 
+                              value={time}
+                              disabled={!available}
+                            >
+                              {time} {!available && '(Unavailable)'}
+                            </SelectItem>
+                          );
+                        })}
                       </SelectContent>
                     </Select>
                   </div>
 
                   <div className="space-y-2">
                     <Label>Duration (hours)</Label>
-                    <Select value={duration} onValueChange={setDuration}>
+                    <Select 
+                      value={duration} 
+                      onValueChange={(value) => {
+                        setDuration(value);
+                        setConflictError(null);
+                      }}
+                      disabled={!date}
+                    >
                       <SelectTrigger>
-                        <SelectValue placeholder="Select duration" />
+                        <SelectValue placeholder={date ? "Select duration" : "Select date first"} />
                       </SelectTrigger>
                       <SelectContent>
-                        {[1, 2, 3, 4, 5, 6].map((hours) => (
-                          <SelectItem key={hours} value={hours.toString()}>
-                            {hours} hour{hours > 1 ? 's' : ''}
-                          </SelectItem>
-                        ))}
+                        {[1, 2, 3, 4, 5, 6].map((hours) => {
+                          const available = startTime ? isTimeSlotAvailable(startTime, hours) : true;
+                          return (
+                            <SelectItem 
+                              key={hours} 
+                              value={hours.toString()}
+                              disabled={!available}
+                            >
+                              {hours} hour{hours > 1 ? 's' : ''} {!available && '(Unavailable)'}
+                            </SelectItem>
+                          );
+                        })}
                       </SelectContent>
                     </Select>
                   </div>
