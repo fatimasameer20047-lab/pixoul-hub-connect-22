@@ -61,24 +61,16 @@ export default function Snacks() {
       .select('*')
       .eq('available', true)
       .order('pinned', { ascending: false })
-      .order('category', { ascending: true })
-      .order('name', { ascending: true });
+      .order('created_at', { ascending: false });
 
     if (data) {
       setMenuItems(data);
     }
   };
 
-  const pinnedItems = menuItems.filter(item => item.pinned);
   const filteredItems = selectedCategory === 'All' 
     ? menuItems 
     : menuItems.filter(item => item.category === selectedCategory);
-
-  const sortedFilteredItems = [...filteredItems].sort((a, b) => {
-    if (a.pinned && !b.pinned) return -1;
-    if (!a.pinned && b.pinned) return 1;
-    return 0;
-  });
 
   const renderItemCard = (item: SnackItem) => {
     const Icon = iconMap[item.category] || Coffee;
@@ -161,17 +153,8 @@ export default function Snacks() {
         </TabsList>
       </Tabs>
 
-      {pinnedItems.length > 0 && (
-        <div className="space-y-4">
-          <h2 className="text-2xl font-bold tracking-tight">Most Popular</h2>
-          <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
-            {pinnedItems.map(renderItemCard)}
-          </div>
-        </div>
-      )}
-
-      <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
-        {sortedFilteredItems.map(renderItemCard)}
+      <div className="grid gap-4 auto-fill-grid">
+        {filteredItems.map(renderItemCard)}
       </div>
     </div>
   );
