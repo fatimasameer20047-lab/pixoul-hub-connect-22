@@ -35,7 +35,7 @@ export function CartDrawer() {
           </div>
         ) : (
           <div className="flex flex-col h-full mt-6">
-            <div className="flex-1 overflow-y-auto space-y-4">
+            <div className="flex-1 overflow-y-auto space-y-4 pb-4">
               {cart.items.map((item) => (
                 <div key={item.id} className="flex gap-4 p-4 bg-card rounded-lg border">
                   {item.image_url && (
@@ -85,7 +85,7 @@ export function CartDrawer() {
               ))}
             </div>
             
-            <div className="border-t pt-4 space-y-2">
+            <div className="sticky bottom-0 bg-background border-t pt-4 pb-6 space-y-2 z-50">
               <div className="flex justify-between text-sm">
                 <span>Subtotal</span>
                 <span>{formatPriceAEDUSD(cart.subtotal)}</span>

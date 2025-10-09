@@ -59,6 +59,7 @@ export default function Snacks() {
     const { data } = await supabase
       .from('snacks')
       .select('*')
+      .eq('available', true)
       .order('pinned', { ascending: false })
       .order('category', { ascending: true })
       .order('name', { ascending: true });
@@ -82,7 +83,7 @@ export default function Snacks() {
   const renderItemCard = (item: SnackItem) => {
     const Icon = iconMap[item.category] || Coffee;
     return (
-      <Card key={item.id} className={!item.available ? 'opacity-50' : ''}>
+      <Card key={item.id}>
         {item.image_url && (
           <div className="aspect-video w-full overflow-hidden">
             <img 
@@ -103,9 +104,9 @@ export default function Snacks() {
             </div>
             <div className="text-right">
               <div className="text-2xl font-bold">{formatPriceAEDUSD(item.price)}</div>
-              <Badge variant={item.available ? 'default' : 'secondary'}>
-                {item.available ? 'Available' : 'Out of Stock'}
-              </Badge>
+              {item.pinned && (
+                <Badge variant="default">Most Popular</Badge>
+              )}
             </div>
           </div>
         </CardHeader>
@@ -114,7 +115,7 @@ export default function Snacks() {
             <Button
               size="icon"
               variant="outline"
-              disabled={!item.available || (quantities[item.id] || 1) <= 1}
+              disabled={(quantities[item.id] || 1) <= 1}
               onClick={() => setQuantities({ ...quantities, [item.id]: Math.max(1, (quantities[item.id] || 1) - 1) })}
             >
               <Minus className="h-4 w-4" />
@@ -123,14 +124,12 @@ export default function Snacks() {
             <Button
               size="icon"
               variant="outline"
-              disabled={!item.available}
               onClick={() => setQuantities({ ...quantities, [item.id]: (quantities[item.id] || 1) + 1 })}
             >
               <Plus className="h-4 w-4" />
             </Button>
             <Button
               className="flex-1 ml-2"
-              disabled={!item.available}
               onClick={() => addToCart(item, quantities[item.id] || 1)}
             >
               Add to Cart
