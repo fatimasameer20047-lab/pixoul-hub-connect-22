@@ -19,6 +19,7 @@ interface Event {
   max_participants?: number;
   current_participants: number;
   price: number;
+  image_url?: string;
   is_active: boolean;
 }
 
@@ -89,7 +90,16 @@ export default function StaffEvents() {
 
           <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
             {events.map((event) => (
-              <Card key={event.id}>
+              <Card key={event.id} className="overflow-hidden">
+                {event.image_url && (
+                  <div className="w-full h-48 overflow-hidden">
+                    <img
+                      src={event.image_url}
+                      alt={event.title}
+                      className="w-full h-full object-cover"
+                    />
+                  </div>
+                )}
                 <CardHeader>
                   <div className="flex items-center justify-between">
                     <CardTitle className="text-lg line-clamp-1">{event.title}</CardTitle>

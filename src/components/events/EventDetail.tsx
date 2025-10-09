@@ -227,6 +227,15 @@ export function EventDetail({ event, onBack, onRegistrationComplete }: EventDeta
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
           <div className="lg:col-span-2 space-y-6">
             <Card>
+              {event.image_url && (
+                <div className="w-full h-64 overflow-hidden">
+                  <img
+                    src={event.image_url}
+                    alt={event.title}
+                    className="w-full h-full object-cover"
+                  />
+                </div>
+              )}
               <CardHeader>
                 <div className="flex items-start justify-between">
                   <div>

@@ -249,9 +249,18 @@ export default function Events() {
             {filteredEvents.map((event) => (
               <Card 
                 key={event.id} 
-                className="group hover:shadow-lg hover:shadow-primary/20 transition-all duration-300 cursor-pointer"
+                className="group hover:shadow-lg hover:shadow-primary/20 transition-all duration-300 cursor-pointer overflow-hidden"
                 onClick={() => setSelectedEvent(event)}
               >
+                {event.image_url && (
+                  <div className="w-full h-48 overflow-hidden">
+                    <img
+                      src={event.image_url}
+                      alt={event.title}
+                      className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300"
+                    />
+                  </div>
+                )}
                 <CardHeader>
                   <div className="flex items-start justify-between">
                     <CardTitle className="line-clamp-2">{event.title}</CardTitle>

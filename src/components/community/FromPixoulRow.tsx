@@ -14,6 +14,20 @@ interface PixoulPost {
   created_at: string;
   pinned: boolean;
   published: boolean;
+  event_date?: string;
+  start_time?: string;
+}
+
+interface EventProgram {
+  id: string;
+  title: string;
+  description: string;
+  type: 'event' | 'program';
+  image_url?: string;
+  event_date: string;
+  start_time: string;
+  created_at: string;
+  is_active: boolean;
 }
 
 export function FromPixoulRow() {
@@ -21,23 +35,55 @@ export function FromPixoulRow() {
   const [isLoading, setIsLoading] = useState(true);
 
   useEffect(() => {
-    fetchPixoulPosts();
+    fetchContent();
   }, []);
 
-  const fetchPixoulPosts = async () => {
+  const fetchContent = async () => {
     try {
-      const { data, error } = await supabase
+      // Fetch Pixoul posts
+      const { data: postsData, error: postsError } = await supabase
         .from('pixoul_posts')
         .select('*')
         .eq('published', true)
         .order('pinned', { ascending: false })
         .order('created_at', { ascending: false })
-        .limit(12);
+        .limit(8);
 
-      if (error) throw error;
-      setPosts((data as PixoulPost[]) || []);
+      if (postsError) throw postsError;
+
+      // Fetch active events/programs
+      const { data: eventsData, error: eventsError } = await supabase
+        .from('events_programs')
+        .select('*')
+        .eq('is_active', true)
+        .gte('event_date', new Date().toISOString().split('T')[0])
+        .order('event_date', { ascending: true })
+        .limit(4);
+
+      if (eventsError) throw eventsError;
+
+      // Convert events to PixoulPost format
+      const eventPosts: PixoulPost[] = (eventsData || []).map(event => ({
+        id: event.id,
+        type: event.type as 'event' | 'program',
+        title: event.title,
+        caption: event.description,
+        images: event.image_url ? [event.image_url] : [],
+        created_at: event.created_at,
+        pinned: false,
+        published: true,
+        event_date: event.event_date,
+        start_time: event.start_time,
+      }));
+
+      // Combine and sort by date
+      const combined = [...(postsData as PixoulPost[] || []), ...eventPosts]
+        .sort((a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime())
+        .slice(0, 12);
+
+      setPosts(combined);
     } catch (error) {
-      console.error('Error fetching Pixoul posts:', error);
+      console.error('Error fetching content:', error);
     } finally {
       setIsLoading(false);
     }
@@ -131,6 +177,11 @@ export function FromPixoulRow() {
                 <p className="text-sm text-muted-foreground line-clamp-2 mb-2">
                   {post.caption}
                 </p>
+                {post.event_date && post.start_time && (
+                  <p className="text-xs font-medium text-primary mb-1">
+                    {new Date(post.event_date).toLocaleDateString()} at {post.start_time}
+                  </p>
+                )}
                 <p className="text-xs text-muted-foreground">
                   {new Date(post.created_at).toLocaleDateString()}
                 </p>

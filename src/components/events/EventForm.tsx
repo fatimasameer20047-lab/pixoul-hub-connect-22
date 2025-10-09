@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { ArrowLeft, Calendar, Clock, Users, DollarSign, Upload, Plus } from 'lucide-react';
+import { ArrowLeft, Calendar, Clock, Users, DollarSign, Upload, Plus, X, ImageIcon } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
@@ -64,13 +64,100 @@ export function EventForm({ event, onBack, onSuccess }: EventFormProps) {
   );
   const [startTime, setStartTime] = useState(event?.start_time || '');
   const [endTime, setEndTime] = useState(event?.end_time || '');
+  const [selectedImage, setSelectedImage] = useState<File | null>(null);
+  const [imagePreview, setImagePreview] = useState<string | null>(event?.image_url || null);
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [isUploadingImage, setIsUploadingImage] = useState(false);
   const { user } = useAuth();
   const { canManageEvents } = useStaff();
   const { toast } = useToast();
 
   const handleInputChange = (field: string, value: string) => {
     setFormData(prev => ({ ...prev, [field]: value }));
+  };
+
+  const handleImageSelect = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (file) {
+      if (file.size > 5 * 1024 * 1024) {
+        toast({
+          title: "File too large",
+          description: "Image must be less than 5MB",
+          variant: "destructive",
+        });
+        return;
+      }
+      setSelectedImage(file);
+      const reader = new FileReader();
+      reader.onloadend = () => {
+        setImagePreview(reader.result as string);
+      };
+      reader.readAsDataURL(file);
+    }
+  };
+
+  const handleRemoveImage = async () => {
+    if (event?.image_url && event?.id) {
+      try {
+        const imagePath = event.image_url.split('/events/')[1];
+        if (imagePath) {
+          const { error } = await supabase.storage.from('events').remove([imagePath]);
+          if (error) throw error;
+        }
+        
+        const { error: updateError } = await supabase
+          .from('events_programs')
+          .update({ image_url: null })
+          .eq('id', event.id);
+        
+        if (updateError) throw updateError;
+        
+        toast({
+          title: "Image removed",
+          description: "Event image has been removed successfully.",
+        });
+      } catch (error: any) {
+        toast({
+          title: "Error removing image",
+          description: error.message,
+          variant: "destructive",
+        });
+      }
+    }
+    setSelectedImage(null);
+    setImagePreview(null);
+  };
+
+  const uploadImage = async (eventId: string): Promise<string | null> => {
+    if (!selectedImage) return null;
+
+    setIsUploadingImage(true);
+    try {
+      const fileExt = selectedImage.name.split('.').pop();
+      const fileName = `${eventId}-${Date.now()}.${fileExt}`;
+      const filePath = fileName;
+
+      const { error: uploadError } = await supabase.storage
+        .from('events')
+        .upload(filePath, selectedImage, { upsert: true });
+
+      if (uploadError) throw uploadError;
+
+      const { data: { publicUrl } } = supabase.storage
+        .from('events')
+        .getPublicUrl(filePath);
+
+      return publicUrl;
+    } catch (error: any) {
+      toast({
+        title: "Error uploading image",
+        description: error.message,
+        variant: "destructive",
+      });
+      return null;
+    } finally {
+      setIsUploadingImage(false);
+    }
   };
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -97,7 +184,9 @@ export function EventForm({ event, onBack, onSuccess }: EventFormProps) {
         is_active: true,
       };
 
+      let eventId = event?.id;
       let error;
+
       if (event?.id) {
         // Update existing event
         const { error: updateError } = await supabase
@@ -107,13 +196,29 @@ export function EventForm({ event, onBack, onSuccess }: EventFormProps) {
         error = updateError;
       } else {
         // Create new event
-        const { error: insertError } = await supabase
+        const { data: newEvent, error: insertError } = await supabase
           .from('events_programs')
-          .insert(eventData);
+          .insert(eventData)
+          .select()
+          .single();
         error = insertError;
+        eventId = newEvent?.id;
       }
 
       if (error) throw error;
+
+      // Upload image if one was selected
+      if (selectedImage && eventId) {
+        const imageUrl = await uploadImage(eventId);
+        if (imageUrl) {
+          const { error: imageError } = await supabase
+            .from('events_programs')
+            .update({ image_url: imageUrl })
+            .eq('id', eventId);
+          
+          if (imageError) throw imageError;
+        }
+      }
 
       toast({
         title: event?.id ? "Event updated!" : "Event created!",
@@ -312,6 +417,47 @@ export function EventForm({ event, onBack, onSuccess }: EventFormProps) {
             </div>
 
             <div className="space-y-2">
+              <Label>Cover Image (optional)</Label>
+              {imagePreview ? (
+                <div className="relative">
+                  <img 
+                    src={imagePreview} 
+                    alt="Event cover" 
+                    className="w-full h-48 object-cover rounded-lg"
+                  />
+                  <Button
+                    type="button"
+                    variant="destructive"
+                    size="icon"
+                    className="absolute top-2 right-2"
+                    onClick={handleRemoveImage}
+                  >
+                    <X className="h-4 w-4" />
+                  </Button>
+                </div>
+              ) : (
+                <div className="border-2 border-dashed rounded-lg p-8 text-center hover:border-primary transition-colors">
+                  <input
+                    type="file"
+                    accept="image/*"
+                    onChange={handleImageSelect}
+                    className="hidden"
+                    id="event-image"
+                  />
+                  <label htmlFor="event-image" className="cursor-pointer">
+                    <ImageIcon className="h-12 w-12 mx-auto mb-4 text-muted-foreground" />
+                    <p className="text-sm text-muted-foreground mb-2">
+                      Click to upload cover image
+                    </p>
+                    <p className="text-xs text-muted-foreground">
+                      PNG, JPG up to 5MB
+                    </p>
+                  </label>
+                </div>
+              )}
+            </div>
+
+            <div className="space-y-2">
               <Label>Description *</Label>
               <Textarea
                 value={formData.description}
@@ -353,10 +499,11 @@ export function EventForm({ event, onBack, onSuccess }: EventFormProps) {
                 !formData.description || 
                 !eventDate || 
                 !startTime ||
-                isSubmitting
+                isSubmitting ||
+                isUploadingImage
               }
             >
-              {isSubmitting ? (event?.id ? 'Updating...' : 'Creating...') : (event?.id ? 'Update Event' : 'Create Event')}
+              {isSubmitting || isUploadingImage ? (event?.id ? 'Updating...' : 'Creating...') : (event?.id ? 'Update Event' : 'Create Event')}
             </Button>
           </form>
         </CardContent>
