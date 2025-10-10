@@ -533,6 +533,33 @@ export type Database = {
           },
         ]
       }
+      party_gallery: {
+        Row: {
+          caption: string
+          category: string
+          created_at: string
+          id: string
+          images: Json
+          updated_at: string
+        }
+        Insert: {
+          caption: string
+          category: string
+          created_at?: string
+          id?: string
+          images?: Json
+          updated_at?: string
+        }
+        Update: {
+          caption?: string
+          category?: string
+          created_at?: string
+          id?: string
+          images?: Json
+          updated_at?: string
+        }
+        Relationships: []
+      }
       party_requests: {
         Row: {
           age: number | null

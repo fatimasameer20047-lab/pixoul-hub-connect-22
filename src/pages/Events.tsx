@@ -13,6 +13,8 @@ import { format, parseISO, isBefore, startOfDay } from 'date-fns';
 import { EventDetail } from '@/components/events/EventDetail';
 import { MyRegistrations } from '@/components/events/MyRegistrations';
 import { EventForm } from '@/components/events/EventForm';
+import { formatPriceAEDUSD } from '@/lib/price-formatter';
+import { ImageViewer } from '@/components/ui/image-viewer';
 
 interface Event {
   id: string;
@@ -45,6 +47,8 @@ export default function Events() {
   const [dateFilter, setDateFilter] = useState('all');
   const [showEventForm, setShowEventForm] = useState(false);
   const [editingEvent, setEditingEvent] = useState<Event | null>(null);
+  const [viewerImages, setViewerImages] = useState<string[]>([]);
+  const [showViewer, setShowViewer] = useState(false);
   const { user } = useAuth();
   const isDemoMode = import.meta.env.DEMO_MODE === 'true';
   const { toast } = useToast();
@@ -253,11 +257,18 @@ export default function Events() {
                 onClick={() => setSelectedEvent(event)}
               >
                 {event.image_url && (
-                  <div className="w-full h-48 overflow-hidden">
+                  <div 
+                    className="w-full h-48 overflow-hidden"
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      setViewerImages([event.image_url!]);
+                      setShowViewer(true);
+                    }}
+                  >
                     <img
                       src={event.image_url}
                       alt={event.title}
-                      className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300"
+                      className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300 cursor-pointer"
                     />
                   </div>
                 )}
@@ -306,7 +317,7 @@ export default function Events() {
                     {event.price > 0 && (
                       <div className="flex items-center gap-2">
                         <DollarSign className="h-4 w-4" />
-                        ${event.price}
+                        {formatPriceAEDUSD(event.price)}
                       </div>
                     )}
                     {event.instructor && (
@@ -363,6 +374,12 @@ export default function Events() {
           <MyRegistrations />
         </TabsContent>
       </Tabs>
+
+      <ImageViewer
+        images={viewerImages}
+        open={showViewer}
+        onOpenChange={setShowViewer}
+      />
     </div>
   );
 }

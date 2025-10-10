@@ -8,6 +8,7 @@ import { CartDrawer } from '@/components/snacks/CartDrawer';
 import { useCart } from '@/hooks/use-cart';
 import { supabase } from '@/integrations/supabase/client';
 import { formatPriceAEDUSD } from '@/lib/price-formatter';
+import { ImageViewer } from '@/components/ui/image-viewer';
 
 interface SnackItem {
   id: string;
@@ -29,6 +30,8 @@ export default function Snacks() {
   const [menuItems, setMenuItems] = useState<SnackItem[]>([]);
   const [quantities, setQuantities] = useState<Record<string, number>>({});
   const [selectedCategory, setSelectedCategory] = useState<string>('All');
+  const [viewerImages, setViewerImages] = useState<string[]>([]);
+  const [showViewer, setShowViewer] = useState(false);
   const { addToCart } = useCart();
 
   useEffect(() => {
@@ -77,11 +80,17 @@ export default function Snacks() {
     return (
       <Card key={item.id}>
         {item.image_url && (
-          <div className="aspect-video w-full overflow-hidden">
+          <div 
+            className="aspect-video w-full overflow-hidden cursor-pointer"
+            onClick={() => {
+              setViewerImages([item.image_url!]);
+              setShowViewer(true);
+            }}
+          >
             <img 
               src={item.image_url} 
               alt={item.name}
-              className="w-full h-full object-cover"
+              className="w-full h-full object-cover hover:scale-105 transition-transform"
             />
           </div>
         )}
@@ -156,6 +165,12 @@ export default function Snacks() {
       <div className="grid gap-4 auto-fill-grid">
         {filteredItems.map(renderItemCard)}
       </div>
+
+      <ImageViewer
+        images={viewerImages}
+        open={showViewer}
+        onOpenChange={setShowViewer}
+      />
     </div>
   );
 }

@@ -2,12 +2,15 @@ import { useState, useEffect } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
-import { Settings, Upload, Users, DollarSign } from 'lucide-react';
+import { Settings, Plus, Users, DollarSign } from 'lucide-react';
 import { supabase } from '@/integrations/supabase/client';
 import { useToast } from '@/hooks/use-toast';
-import { RoomPhotoUploadDialog } from '@/components/booking/RoomPhotoUploadDialog';
+import { AddRoomDialog } from '@/components/booking/AddRoomDialog';
 import { RoomEditDialog } from '@/components/booking/RoomEditDialog';
 import { BookingDashboard } from '@/components/booking/BookingDashboard';
+import { formatPriceAEDUSD } from '@/lib/price-formatter';
+import { ImageViewer } from '@/components/ui/image-viewer';
+import { PartyGalleryManager } from '@/components/booking/PartyGalleryManager';
 
 interface Room {
   id: string;
@@ -22,8 +25,10 @@ interface Room {
 
 export default function StaffRooms() {
   const [rooms, setRooms] = useState<Room[]>([]);
-  const [showPhotoUpload, setShowPhotoUpload] = useState(false);
+  const [showAddRoom, setShowAddRoom] = useState(false);
   const [editingRoom, setEditingRoom] = useState<Room | null>(null);
+  const [viewerImages, setViewerImages] = useState<string[]>([]);
+  const [showViewer, setShowViewer] = useState(false);
   const { toast } = useToast();
 
   useEffect(() => {
@@ -54,9 +59,9 @@ export default function StaffRooms() {
           <h1 className="text-3xl font-bold tracking-tight">Room Management</h1>
           <p className="text-muted-foreground">Manage room details and bookings</p>
         </div>
-        <Button onClick={() => setShowPhotoUpload(true)} className="flex items-center gap-2">
-          <Upload className="h-4 w-4" />
-          Set Room Photos
+        <Button onClick={() => setShowAddRoom(true)} className="flex items-center gap-2">
+          <Plus className="h-4 w-4" />
+          Add Room
         </Button>
       </div>
 
@@ -64,11 +69,17 @@ export default function StaffRooms() {
         {rooms.map((room) => (
           <Card key={room.id}>
             {room.image_url && (
-              <div className="aspect-video w-full overflow-hidden">
+              <div 
+                className="aspect-video w-full overflow-hidden cursor-pointer"
+                onClick={() => {
+                  setViewerImages([room.image_url!]);
+                  setShowViewer(true);
+                }}
+              >
                 <img 
                   src={room.image_url} 
                   alt={room.name}
-                  className="w-full h-full object-cover"
+                  className="w-full h-full object-cover hover:scale-105 transition-transform"
                 />
               </div>
             )}
@@ -90,7 +101,7 @@ export default function StaffRooms() {
                 </div>
                 <div className="flex items-center gap-2">
                   <DollarSign className="h-4 w-4" />
-                  ${room.hourly_rate}/hour
+                  {formatPriceAEDUSD(room.hourly_rate)}/hour
                 </div>
               </div>
 
@@ -107,12 +118,16 @@ export default function StaffRooms() {
         ))}
       </div>
 
+      <div className="mt-8">
+        <PartyGalleryManager />
+      </div>
+
       <BookingDashboard />
 
-      <RoomPhotoUploadDialog
-        open={showPhotoUpload}
-        onOpenChange={setShowPhotoUpload}
-        onUploadComplete={fetchRooms}
+      <AddRoomDialog
+        open={showAddRoom}
+        onOpenChange={setShowAddRoom}
+        onSuccess={fetchRooms}
       />
 
       <RoomEditDialog
@@ -120,6 +135,12 @@ export default function StaffRooms() {
         open={!!editingRoom}
         onOpenChange={(open) => !open && setEditingRoom(null)}
         onSuccess={fetchRooms}
+      />
+
+      <ImageViewer
+        images={viewerImages}
+        open={showViewer}
+        onOpenChange={setShowViewer}
       />
     </div>
   );

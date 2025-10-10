@@ -1,64 +1,57 @@
-import { useState, useEffect } from 'react';
+import { useState } from 'react';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import { Upload, X } from 'lucide-react';
 import { supabase } from '@/integrations/supabase/client';
 import { useToast } from '@/hooks/use-toast';
-import { RoomPhotoManager } from './RoomPhotoManager';
 
-interface Room {
-  id: string;
-  name: string;
-  type: string;
-  capacity: number;
-  hourly_rate: number;
-  description: string;
-  amenities: string[];
-  image_url: string | null;
-}
-
-interface RoomEditDialogProps {
-  room: Room | null;
+interface AddRoomDialogProps {
   open: boolean;
   onOpenChange: (open: boolean) => void;
   onSuccess: () => void;
 }
 
-export function RoomEditDialog({ room, open, onOpenChange, onSuccess }: RoomEditDialogProps) {
-  const [name, setName] = useState(room?.name || '');
-  const [type, setType] = useState(room?.type || 'pc');
-  const [capacity, setCapacity] = useState(room?.capacity.toString() || '');
-  const [hourlyRate, setHourlyRate] = useState(room?.hourly_rate.toString() || '');
-  const [description, setDescription] = useState(room?.description || '');
-  const [amenities, setAmenities] = useState(room?.amenities.join(', ') || '');
+export function AddRoomDialog({ open, onOpenChange, onSuccess }: AddRoomDialogProps) {
+  const [name, setName] = useState('');
+  const [type, setType] = useState('pc');
+  const [capacity, setCapacity] = useState('');
+  const [hourlyRate, setHourlyRate] = useState('');
+  const [description, setDescription] = useState('');
+  const [amenities, setAmenities] = useState('');
+  const [selectedFiles, setSelectedFiles] = useState<File[]>([]);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const { toast } = useToast();
 
-  // Update form when room changes
-  useEffect(() => {
-    if (room) {
-      setName(room.name);
-      setType(room.type);
-      setCapacity(room.capacity.toString());
-      setHourlyRate(room.hourly_rate.toString());
-      setDescription(room.description);
-      setAmenities(room.amenities.join(', '));
+  const handleFileSelect = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const files = Array.from(e.target.files || []);
+    if (files.length > 5) {
+      toast({
+        title: "Too many files",
+        description: "Maximum 5 photos allowed",
+        variant: "destructive",
+      });
+      return;
     }
-  }, [room]);
+    setSelectedFiles(files);
+  };
+
+  const removeFile = (index: number) => {
+    setSelectedFiles(prev => prev.filter((_, i) => i !== index));
+  };
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!room) return;
-
     setIsSubmitting(true);
 
     try {
-      const { error } = await supabase
+      // Create room first
+      const { data: room, error: roomError } = await supabase
         .from('rooms')
-        .update({
+        .insert({
           name,
           type,
           capacity: parseInt(capacity),
@@ -66,20 +59,58 @@ export function RoomEditDialog({ room, open, onOpenChange, onSuccess }: RoomEdit
           description,
           amenities: amenities.split(',').map(a => a.trim()).filter(a => a),
         })
-        .eq('id', room.id);
+        .select()
+        .single();
 
-      if (error) throw error;
+      if (roomError) throw roomError;
+
+      // Upload photos if any
+      if (selectedFiles.length > 0) {
+        const uploadedUrls: string[] = [];
+        
+        for (const file of selectedFiles) {
+          const fileName = `${room.id}-${Date.now()}-${file.name}`;
+          const { error: uploadError } = await supabase.storage
+            .from('rooms')
+            .upload(fileName, file);
+
+          if (uploadError) throw uploadError;
+
+          const { data: { publicUrl } } = supabase.storage
+            .from('rooms')
+            .getPublicUrl(fileName);
+
+          uploadedUrls.push(publicUrl);
+        }
+
+        // Set first image as cover
+        if (uploadedUrls.length > 0) {
+          await supabase
+            .from('rooms')
+            .update({ image_url: uploadedUrls[0] })
+            .eq('id', room.id);
+        }
+      }
 
       toast({
-        title: "Room updated",
-        description: "Room details have been updated successfully.",
+        title: "Room created",
+        description: "New room has been added successfully.",
       });
 
+      // Reset form
+      setName('');
+      setType('pc');
+      setCapacity('');
+      setHourlyRate('');
+      setDescription('');
+      setAmenities('');
+      setSelectedFiles([]);
+      
       onSuccess();
       onOpenChange(false);
     } catch (error: any) {
       toast({
-        title: "Error updating room",
+        title: "Error creating room",
         description: error.message,
         variant: "destructive",
       });
@@ -92,7 +123,7 @@ export function RoomEditDialog({ room, open, onOpenChange, onSuccess }: RoomEdit
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
         <DialogHeader>
-          <DialogTitle>Edit Room Details</DialogTitle>
+          <DialogTitle>Add New Room</DialogTitle>
         </DialogHeader>
         <form onSubmit={handleSubmit} className="space-y-4">
           <div className="grid grid-cols-2 gap-4">
@@ -114,6 +145,7 @@ export function RoomEditDialog({ room, open, onOpenChange, onSuccess }: RoomEdit
                 </SelectTrigger>
                 <SelectContent>
                   <SelectItem value="pc">PC</SelectItem>
+                  <SelectItem value="console">Console</SelectItem>
                   <SelectItem value="vip">VIP</SelectItem>
                   <SelectItem value="event">Event</SelectItem>
                   <SelectItem value="social">Social</SelectItem>
@@ -168,13 +200,47 @@ export function RoomEditDialog({ room, open, onOpenChange, onSuccess }: RoomEdit
             />
           </div>
 
-          {room && (
-            <RoomPhotoManager
-              roomId={room.id}
-              currentImageUrl={room.image_url}
-              onPhotoUpdated={onSuccess}
-            />
-          )}
+          <div className="space-y-2">
+            <Label>Room Photos (1-5 images)</Label>
+            <div className="flex items-center justify-center w-full">
+              <label htmlFor="room-photos" className="flex flex-col items-center justify-center w-full h-32 border-2 border-dashed rounded-lg cursor-pointer hover:bg-muted/50">
+                <div className="flex flex-col items-center justify-center pt-5 pb-6">
+                  <Upload className="w-8 h-8 mb-2 text-muted-foreground" />
+                  <p className="text-sm text-muted-foreground">
+                    <span className="font-medium">Click to upload</span> room photos
+                  </p>
+                </div>
+                <input 
+                  id="room-photos" 
+                  type="file" 
+                  className="hidden" 
+                  multiple 
+                  accept="image/*"
+                  onChange={handleFileSelect}
+                />
+              </label>
+            </div>
+            {selectedFiles.length > 0 && (
+              <div className="space-y-2">
+                <p className="text-sm font-medium">Selected: {selectedFiles.length} photos</p>
+                <div className="grid grid-cols-2 gap-2">
+                  {selectedFiles.map((file, index) => (
+                    <div key={index} className="relative border rounded p-2 flex items-center gap-2">
+                      <span className="text-sm truncate flex-1">{file.name}</span>
+                      <Button
+                        type="button"
+                        size="sm"
+                        variant="ghost"
+                        onClick={() => removeFile(index)}
+                      >
+                        <X className="h-4 w-4" />
+                      </Button>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
+          </div>
 
           <div className="flex justify-end gap-2">
             <Button
@@ -186,7 +252,7 @@ export function RoomEditDialog({ room, open, onOpenChange, onSuccess }: RoomEdit
               Cancel
             </Button>
             <Button type="submit" disabled={isSubmitting}>
-              {isSubmitting ? 'Saving...' : 'Save Changes'}
+              {isSubmitting ? 'Creating...' : 'Create Room'}
             </Button>
           </div>
         </form>

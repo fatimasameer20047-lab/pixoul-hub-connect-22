@@ -7,12 +7,13 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/contexts/AuthContext';
 import { useToast } from '@/hooks/use-toast';
+import { useNavigate } from 'react-router-dom';
 import { RoomBookingForm } from '@/components/booking/RoomBookingForm';
 import { PartyRequestForm } from '@/components/booking/PartyRequestForm';
 import { MyBookings } from '@/components/booking/MyBookings';
-import { RoomPhotoUploadDialog } from '@/components/booking/RoomPhotoUploadDialog';
 import { BookingDashboard } from '@/components/booking/BookingDashboard';
 import { formatPriceAEDUSD } from '@/lib/price-formatter';
+import { ImageViewer } from '@/components/ui/image-viewer';
 
 interface Room {
   id: string;
@@ -30,9 +31,11 @@ export default function Booking() {
   const [selectedRoom, setSelectedRoom] = useState<Room | null>(null);
   const [showRoomForm, setShowRoomForm] = useState(false);
   const [showPartyForm, setShowPartyForm] = useState(false);
-  const [showPhotoUpload, setShowPhotoUpload] = useState(false);
   const [showDashboard, setShowDashboard] = useState(false);
+  const [viewerImages, setViewerImages] = useState<string[]>([]);
+  const [showViewer, setShowViewer] = useState(false);
   const { user } = useAuth();
+  const navigate = useNavigate();
   const isDemoMode = import.meta.env.DEMO_MODE === 'true';
   const { toast } = useToast();
 
@@ -145,7 +148,13 @@ export default function Booking() {
             {rooms.map((room) => (
               <Card key={room.id} className="group hover:shadow-lg hover:shadow-primary/20 transition-all duration-300 overflow-hidden">
                 {room.image_url && (
-                  <div className="aspect-video w-full overflow-hidden">
+                  <div 
+                    className="aspect-video w-full overflow-hidden cursor-pointer"
+                    onClick={() => {
+                      setViewerImages([room.image_url!]);
+                      setShowViewer(true);
+                    }}
+                  >
                     <img 
                       src={room.image_url} 
                       alt={room.name}
@@ -213,18 +222,22 @@ export default function Booking() {
               </p>
             </CardHeader>
             <CardContent className="space-y-6">
-              <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-                <Card className="text-center p-4">
-                  <h3 className="font-semibold mb-2">Birthday Parties</h3>
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <Card 
+                  className="text-center p-6 cursor-pointer hover:shadow-lg hover:shadow-primary/20 transition-all"
+                  onClick={() => navigate('/party-gallery?category=birthday')}
+                >
+                  <h3 className="font-semibold mb-2 text-lg">Birthday Parties</h3>
                   <p className="text-sm text-muted-foreground">Celebrate with VR gaming and custom themes</p>
+                  <p className="text-xs text-primary mt-2">View past events →</p>
                 </Card>
-                <Card className="text-center p-4">
-                  <h3 className="font-semibold mb-2">Graduation Events</h3>
-                  <p className="text-sm text-muted-foreground">Mark achievements with friends</p>
-                </Card>
-                <Card className="text-center p-4">
-                  <h3 className="font-semibold mb-2">Custom Events</h3>
-                  <p className="text-sm text-muted-foreground">Team building, corporate events, and more</p>
+                <Card 
+                  className="text-center p-6 cursor-pointer hover:shadow-lg hover:shadow-primary/20 transition-all"
+                  onClick={() => navigate('/party-gallery?category=other')}
+                >
+                  <h3 className="font-semibold mb-2 text-lg">Other Events</h3>
+                  <p className="text-sm text-muted-foreground">Graduation, team building, corporate events, and more</p>
+                  <p className="text-xs text-primary mt-2">View past events →</p>
                 </Card>
               </div>
               
@@ -248,10 +261,10 @@ export default function Booking() {
         )}
       </Tabs>
 
-      <RoomPhotoUploadDialog
-        open={showPhotoUpload}
-        onOpenChange={setShowPhotoUpload}
-        onUploadComplete={fetchRooms}
+      <ImageViewer
+        images={viewerImages}
+        open={showViewer}
+        onOpenChange={setShowViewer}
       />
     </div>
   );

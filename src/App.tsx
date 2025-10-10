@@ -33,6 +33,7 @@ import StaffAnnouncements from "./pages/staff/StaffAnnouncements";
 import StaffSupport from "./pages/staff/StaffSupport";
 import StaffPixoulPosts from "./pages/staff/StaffPixoulPosts";
 import FromPixoul from "./pages/FromPixoul";
+import PartyGallery from "./pages/PartyGallery";
 
 const queryClient = new QueryClient();
 
@@ -232,6 +233,13 @@ const AppRoutes = () => {
         <GuestRoute>
           <AppLayout>
             <FromPixoul />
+          </AppLayout>
+        </GuestRoute>
+      } />
+      <Route path="/party-gallery" element={
+        <GuestRoute>
+          <AppLayout>
+            <PartyGallery />
           </AppLayout>
         </GuestRoute>
       } />
