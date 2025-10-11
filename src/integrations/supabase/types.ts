@@ -216,6 +216,7 @@ export type Database = {
       }
       event_registrations: {
         Row: {
+          amount_paid: number | null
           created_at: string | null
           event_id: string
           id: string
@@ -223,11 +224,15 @@ export type Database = {
           participant_email: string
           participant_name: string
           party_size: number | null
+          payment_method: string | null
+          payment_status: string | null
           status: string | null
+          stripe_payment_id: string | null
           updated_at: string | null
           user_id: string
         }
         Insert: {
+          amount_paid?: number | null
           created_at?: string | null
           event_id: string
           id?: string
@@ -235,11 +240,15 @@ export type Database = {
           participant_email: string
           participant_name: string
           party_size?: number | null
+          payment_method?: string | null
+          payment_status?: string | null
           status?: string | null
+          stripe_payment_id?: string | null
           updated_at?: string | null
           user_id: string
         }
         Update: {
+          amount_paid?: number | null
           created_at?: string | null
           event_id?: string
           id?: string
@@ -247,7 +256,10 @@ export type Database = {
           participant_email?: string
           participant_name?: string
           party_size?: number | null
+          payment_method?: string | null
+          payment_status?: string | null
           status?: string | null
+          stripe_payment_id?: string | null
           updated_at?: string | null
           user_id?: string
         }
@@ -571,13 +583,17 @@ export type Database = {
           id: string
           name: string
           party_type: string
+          payment_method: string | null
+          payment_status: string | null
           preferred_date: string | null
           preferred_time_end: string | null
           preferred_time_start: string | null
+          ready_to_pay: boolean | null
           school_name: string | null
           special_notes: string | null
           staff_notes: string | null
           status: string | null
+          stripe_payment_id: string | null
           theme: string | null
           updated_at: string | null
           user_id: string
@@ -592,13 +608,17 @@ export type Database = {
           id?: string
           name: string
           party_type: string
+          payment_method?: string | null
+          payment_status?: string | null
           preferred_date?: string | null
           preferred_time_end?: string | null
           preferred_time_start?: string | null
+          ready_to_pay?: boolean | null
           school_name?: string | null
           special_notes?: string | null
           staff_notes?: string | null
           status?: string | null
+          stripe_payment_id?: string | null
           theme?: string | null
           updated_at?: string | null
           user_id: string
@@ -613,13 +633,17 @@ export type Database = {
           id?: string
           name?: string
           party_type?: string
+          payment_method?: string | null
+          payment_status?: string | null
           preferred_date?: string | null
           preferred_time_end?: string | null
           preferred_time_start?: string | null
+          ready_to_pay?: boolean | null
           school_name?: string | null
           special_notes?: string | null
           staff_notes?: string | null
           status?: string | null
+          stripe_payment_id?: string | null
           theme?: string | null
           updated_at?: string | null
           user_id?: string
@@ -774,9 +798,12 @@ export type Database = {
           end_time: string
           id: string
           notes: string | null
+          payment_method: string | null
+          payment_status: string | null
           room_id: string
           start_time: string
           status: string | null
+          stripe_payment_id: string | null
           total_amount: number | null
           updated_at: string | null
           user_id: string
@@ -790,9 +817,12 @@ export type Database = {
           end_time: string
           id?: string
           notes?: string | null
+          payment_method?: string | null
+          payment_status?: string | null
           room_id: string
           start_time: string
           status?: string | null
+          stripe_payment_id?: string | null
           total_amount?: number | null
           updated_at?: string | null
           user_id: string
@@ -806,9 +836,12 @@ export type Database = {
           end_time?: string
           id?: string
           notes?: string | null
+          payment_method?: string | null
+          payment_status?: string | null
           room_id?: string
           start_time?: string
           status?: string | null
+          stripe_payment_id?: string | null
           total_amount?: number | null
           updated_at?: string | null
           user_id?: string
@@ -866,6 +899,48 @@ export type Database = {
           is_active?: boolean | null
           name?: string
           type?: string
+        }
+        Relationships: []
+      }
+      saved_cards: {
+        Row: {
+          card_brand: string
+          card_exp_month: number
+          card_exp_year: number
+          card_last4: string
+          created_at: string | null
+          id: string
+          is_default: boolean | null
+          stripe_customer_id: string
+          stripe_payment_method_id: string
+          updated_at: string | null
+          user_id: string
+        }
+        Insert: {
+          card_brand: string
+          card_exp_month: number
+          card_exp_year: number
+          card_last4: string
+          created_at?: string | null
+          id?: string
+          is_default?: boolean | null
+          stripe_customer_id: string
+          stripe_payment_method_id: string
+          updated_at?: string | null
+          user_id: string
+        }
+        Update: {
+          card_brand?: string
+          card_exp_month?: number
+          card_exp_year?: number
+          card_last4?: string
+          created_at?: string | null
+          id?: string
+          is_default?: boolean | null
+          stripe_customer_id?: string
+          stripe_payment_method_id?: string
+          updated_at?: string | null
+          user_id?: string
         }
         Relationships: []
       }
