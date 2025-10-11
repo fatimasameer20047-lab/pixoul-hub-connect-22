@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react';
-import { ArrowLeft, Calendar, Clock, CreditCard, MessageCircle, AlertCircle } from 'lucide-react';
+import { ArrowLeft, Calendar, Clock, MessageCircle, AlertCircle } from 'lucide-react';
+import { CheckoutDialog } from '@/components/payment/CheckoutDialog';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
@@ -53,6 +54,8 @@ export function RoomBookingForm({ room, onBack }: RoomBookingFormProps) {
   const [availableSlots, setAvailableSlots] = useState<AvailableSlot[]>([]);
   const [bookedSlots, setBookedSlots] = useState<{start_time: string, end_time: string}[]>([]);
   const [conflictError, setConflictError] = useState<string | null>(null);
+  const [bookingId, setBookingId] = useState<string | null>(null);
+  const [showCheckout, setShowCheckout] = useState(false);
   const { user } = useAuth();
   const { toast } = useToast();
 
@@ -155,7 +158,7 @@ export function RoomBookingForm({ room, onBack }: RoomBookingFormProps) {
       const endTime = calculateEndTime(startTime, parseInt(duration));
       const totalAmount = calculateTotal();
 
-      const { error } = await supabase
+      const { data, error } = await supabase
         .from('room_bookings')
         .insert({
           user_id: user.id,
@@ -165,11 +168,14 @@ export function RoomBookingForm({ room, onBack }: RoomBookingFormProps) {
           end_time: endTime,
           duration_hours: parseInt(duration),
           total_amount: totalAmount,
-          status: 'confirmed',
+          status: 'pending',
+          payment_status: 'unpaid',
           notes,
           contact_phone: contactPhone,
           contact_email: contactEmail,
-        });
+        })
+        .select()
+        .single();
 
       if (error) {
         // Check if it's a conflict error from the trigger
@@ -180,12 +186,8 @@ export function RoomBookingForm({ room, onBack }: RoomBookingFormProps) {
         throw error;
       }
 
-      toast({
-        title: "Booking confirmed!",
-        description: `Your ${room.name} booking has been confirmed.`,
-      });
-
-      onBack();
+      setBookingId(data.id);
+      setShowCheckout(true);
     } catch (error: any) {
       toast({
         title: "Booking failed",
@@ -386,7 +388,7 @@ export function RoomBookingForm({ room, onBack }: RoomBookingFormProps) {
                 </div>
                 <div className="flex justify-between">
                   <span>Rate:</span>
-                  <span>${room.hourly_rate}/hour</span>
+                  <span>AED {room.hourly_rate}/hour</span>
                 </div>
                 {date && (
                   <div className="flex justify-between">
@@ -412,12 +414,13 @@ export function RoomBookingForm({ room, onBack }: RoomBookingFormProps) {
               
               <div className="flex justify-between text-lg font-semibold">
                 <span>Total:</span>
-                <span>${calculateTotal()}</span>
+                <span>AED {calculateTotal()}</span>
               </div>
 
-              <div className="flex items-center gap-2 text-sm text-muted-foreground">
-                <CreditCard className="h-4 w-4" />
-                <span>Payment coming soon</span>
+              <div className="text-sm text-muted-foreground space-y-1">
+                <p>• Payment required to confirm booking</p>
+                <p>• Time slot reserved after payment</p>
+                <p>• Includes 5% VAT</p>
               </div>
             </CardContent>
           </Card>
@@ -443,6 +446,25 @@ export function RoomBookingForm({ room, onBack }: RoomBookingFormProps) {
           conversationType="room_booking"
           referenceId={room.id}
           title={`${room.name} - Booking Support`}
+        />
+      )}
+
+      {bookingId && (
+        <CheckoutDialog
+          open={showCheckout}
+          onOpenChange={setShowCheckout}
+          type="booking"
+          referenceId={bookingId}
+          amount={calculateTotal()}
+          itemName={`${room.name} Booking`}
+          description={`${format(date!, 'PPP')} at ${startTime} for ${duration} hours`}
+          onSuccess={() => {
+            toast({
+              title: "Booking confirmed!",
+              description: `Your ${room.name} booking has been confirmed.`,
+            });
+            onBack();
+          }}
         />
       )}
     </div>

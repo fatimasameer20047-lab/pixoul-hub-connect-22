@@ -34,6 +34,9 @@ import StaffSupport from "./pages/staff/StaffSupport";
 import StaffPixoulPosts from "./pages/staff/StaffPixoulPosts";
 import FromPixoul from "./pages/FromPixoul";
 import PartyGallery from "./pages/PartyGallery";
+import Checkout from "./pages/Checkout";
+import PaymentSuccess from "./pages/PaymentSuccess";
+import PaymentCancelled from "./pages/PaymentCancelled";
 
 const queryClient = new QueryClient();
 
@@ -242,6 +245,23 @@ const AppRoutes = () => {
             <PartyGallery />
           </AppLayout>
         </GuestRoute>
+      } />
+      <Route path="/checkout" element={
+        <GuestRoute>
+          <AppLayout>
+            <Checkout />
+          </AppLayout>
+        </GuestRoute>
+      } />
+      <Route path="/payment-success" element={
+        <AppLayout>
+          <PaymentSuccess />
+        </AppLayout>
+      } />
+      <Route path="/payment-cancelled" element={
+        <AppLayout>
+          <PaymentCancelled />
+        </AppLayout>
       } />
 
       {/* Staff Routes */}
