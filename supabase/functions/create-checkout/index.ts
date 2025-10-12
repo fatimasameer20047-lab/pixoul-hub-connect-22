@@ -46,7 +46,6 @@ serve(async (req) => {
     // Calculate amount in cents with 5% VAT
     const subtotal = Math.round(amount * 100);
     const vat = Math.round(subtotal * 0.05);
-    const total = subtotal + vat;
 
     const origin = req.headers.get("origin") || "http://localhost:3000";
     
@@ -61,21 +60,28 @@ serve(async (req) => {
               name: metadata.itemName || 'Payment',
               description: metadata.description,
             },
-            unit_amount: total,
+            unit_amount: subtotal,
+          },
+          quantity: 1,
+        },
+        {
+          price_data: {
+            currency: 'aed',
+            product_data: {
+              name: 'VAT (5%)',
+            },
+            unit_amount: vat,
           },
           quantity: 1,
         },
       ],
       mode: "payment",
-      success_url: `${origin}/payment-success?type=${type}&id=${referenceId}`,
+      success_url: `${origin}/payment-success?session_id={CHECKOUT_SESSION_ID}&type=${type}&id=${referenceId}`,
       cancel_url: `${origin}/payment-cancelled?type=${type}&id=${referenceId}`,
       metadata: {
         type,
         referenceId,
         userId: user.id,
-        subtotal: subtotal.toString(),
-        vat: vat.toString(),
-        total: total.toString(),
       },
       payment_intent_data: paymentMethodId ? {
         setup_future_usage: 'on_session',
@@ -88,7 +94,7 @@ serve(async (req) => {
     });
   } catch (error) {
     console.error("Checkout error:", error);
-    return new Response(JSON.stringify({ error: error.message }), {
+    return new Response(JSON.stringify({ error: error instanceof Error ? error.message : 'Unknown error' }), {
       headers: { ...corsHeaders, "Content-Type": "application/json" },
       status: 500,
     });

@@ -159,12 +159,12 @@ export function MyBookings() {
                       <MapPin className="h-5 w-5" />
                       {booking.rooms.name}
                     </CardTitle>
-                    <div className="flex items-center gap-2">
-                      <Badge variant={getStatusVariant(booking.status)}>
-                        {getStatusIcon(booking.status)}
-                        {booking.status}
-                      </Badge>
-                    </div>
+                     <div className="flex items-center gap-2">
+                       <Badge variant={getStatusVariant(booking.status)}>
+                         {getStatusIcon(booking.status)}
+                         {booking.status === 'pending' ? 'Pending Payment' : booking.status}
+                       </Badge>
+                     </div>
                   </div>
                 </CardHeader>
                 <CardContent className="space-y-4">

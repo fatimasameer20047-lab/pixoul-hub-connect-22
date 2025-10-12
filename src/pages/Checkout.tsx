@@ -56,22 +56,7 @@ export default function Checkout() {
 
       if (orderError) throw orderError;
 
-      // Create order items
-      const orderItems = cart.items.map(item => ({
-        order_id: order.id,
-        menu_item_id: item.menu_item_id,
-        name: item.name,
-        qty: item.qty,
-        unit_price: item.unit_price,
-        line_total: item.line_total
-      }));
-
-      const { error: itemsError } = await supabase
-        .from('order_items')
-        .insert(orderItems);
-
-      if (itemsError) throw itemsError;
-
+      // Don't create order items yet - they'll be created by the webhook after payment
       setOrderId(order.id);
       setShowCheckout(true);
     } catch (error) {
