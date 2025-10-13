@@ -40,7 +40,23 @@ export default function StaffManagement() {
         .order('role');
 
       if (error) throw error;
-      setAssignments(data || []);
+      
+      // Map data to ensure all roles are present
+      const allRoles = ['booking', 'events_programs', 'snacks', 'gallery', 'guides', 'support'];
+      const assignmentMap = new Map(data?.map(a => [a.role, a]) || []);
+      
+      const completeAssignments = allRoles.map(role => {
+        const existing = assignmentMap.get(role);
+        return existing || {
+          id: `temp-${role}`,
+          role,
+          assigned_email: roleLabels[role]?.name.match(/\(([^)]+)\)/)?.[1]?.toLowerCase() + '@staffportal.com' || '',
+          created_at: new Date().toISOString(),
+          updated_at: new Date().toISOString()
+        };
+      });
+      
+      setAssignments(completeAssignments);
     } catch (error) {
       toast({
         title: "Error",
