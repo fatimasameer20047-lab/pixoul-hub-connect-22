@@ -24,6 +24,7 @@ import Announcements from "./pages/Announcements";
 import NotFound from "./pages/NotFound";
 import StaffDashboard from "./pages/staff/StaffDashboard";
 import StaffHome from "./pages/staff/StaffHome";
+import StaffManagement from "./pages/staff/StaffManagement";
 import StaffRooms from "./pages/staff/StaffRooms";
 import StaffEvents from "./pages/staff/StaffEvents";
 import StaffSnacks from "./pages/staff/StaffSnacks";
@@ -332,6 +333,13 @@ const AppRoutes = () => {
         <StaffRoute>
           <StaffLayout>
             <StaffPixoulPosts />
+          </StaffLayout>
+        </StaffRoute>
+      } />
+      <Route path="/staff/management" element={
+        <StaffRoute>
+          <StaffLayout>
+            <StaffManagement />
           </StaffLayout>
         </StaffRoute>
       } />
