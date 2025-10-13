@@ -97,12 +97,12 @@ export const StaffProvider: React.FC<{ children: React.ReactNode }> = ({ childre
     staffEmail,
     staffRole,
     isAdmin,
-    canManageRooms: isAdmin || roleAssignments['booking'] === user?.email,
-    canManageEvents: isAdmin || roleAssignments['events_programs'] === user?.email,
-    canManageSnacks: isAdmin || roleAssignments['snacks'] === user?.email,
-    canModerateGallery: isAdmin || roleAssignments['gallery'] === user?.email,
-    canManageGuides: isAdmin || roleAssignments['guides'] === user?.email,
-    canManageSupport: isAdmin || roleAssignments['support'] === user?.email,
+    canManageRooms: roleAssignments['booking'] === user?.email,
+    canManageEvents: roleAssignments['events_programs'] === user?.email,
+    canManageSnacks: roleAssignments['snacks'] === user?.email,
+    canModerateGallery: roleAssignments['gallery'] === user?.email,
+    canManageGuides: roleAssignments['guides'] === user?.email,
+    canManageSupport: roleAssignments['support'] === user?.email,
     canManageStaff: isAdmin,
   };
 
