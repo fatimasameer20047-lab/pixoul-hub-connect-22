@@ -54,38 +54,44 @@ export const StaffProvider: React.FC<{ children: React.ReactNode }> = ({ childre
         return;
       }
 
-      // Fetch role assignments from database
-      const { data: assignments } = await supabase
-        .from('staff_role_assignments')
-        .select('role, assigned_email');
+    // Fetch role assignments from database
+    const { data: assignments, error } = await supabase
+      .from('staff_role_assignments')
+      .select('role, assigned_email');
 
-      if (assignments) {
-        const assignmentMap: Record<string, string> = {};
-        assignments.forEach((a) => {
-          assignmentMap[a.role] = a.assigned_email;
-        });
-        setRoleAssignments(assignmentMap);
+    console.log('Role assignments fetch result:', { assignments, error, userEmail: user.email });
+
+    if (assignments) {
+      const assignmentMap: Record<string, string> = {};
+      assignments.forEach((a) => {
+        assignmentMap[a.role] = a.assigned_email;
+      });
+      setRoleAssignments(assignmentMap);
+      console.log('Assignment map:', assignmentMap);
 
         // Check if current user is assigned to any role
         const userRole = Object.entries(assignmentMap).find(
           ([_, email]) => email === user.email
         );
 
-        if (userRole) {
-          const [role] = userRole;
-          // Map database role to legacy role names
-          const roleMap: Record<string, 'sara' | 'ahmed' | 'farah' | 'ali' | 'noor' | 'mohamed'> = {
-            'booking': 'sara',
-            'events_programs': 'ahmed',
-            'snacks': 'farah',
-            'gallery': 'ali',
-            'guides': 'noor',
-            'support': 'mohamed',
-          };
-          setStaffRole(roleMap[role] || null);
-        } else {
-          setStaffRole(null);
-        }
+      if (userRole) {
+        const [role] = userRole;
+        console.log('User role found:', role);
+        // Map database role to legacy role names
+        const roleMap: Record<string, 'sara' | 'ahmed' | 'farah' | 'ali' | 'noor' | 'mohamed'> = {
+          'booking': 'sara',
+          'events_programs': 'ahmed',
+          'snacks': 'farah',
+          'gallery': 'ali',
+          'guides': 'noor',
+          'support': 'mohamed',
+        };
+        setStaffRole(roleMap[role] || null);
+        console.log('Staff role set to:', roleMap[role]);
+      } else {
+        console.log('No role found for user:', user.email);
+        setStaffRole(null);
+      }
       }
     };
 
@@ -105,6 +111,20 @@ export const StaffProvider: React.FC<{ children: React.ReactNode }> = ({ childre
     canManageSupport: isAdmin || roleAssignments['support'] === user?.email,
     canManageStaff: isAdmin,
   };
+
+  console.log('Staff context value:', {
+    userEmail: user?.email,
+    isAdmin,
+    roleAssignments,
+    permissions: {
+      canManageRooms: value.canManageRooms,
+      canManageEvents: value.canManageEvents,
+      canManageSnacks: value.canManageSnacks,
+      canModerateGallery: value.canModerateGallery,
+      canManageGuides: value.canManageGuides,
+      canManageSupport: value.canManageSupport,
+    }
+  });
 
   return <StaffContext.Provider value={value}>{children}</StaffContext.Provider>;
 };
