@@ -32,6 +32,7 @@ import StaffGuides from "./pages/staff/StaffGuides";
 import StaffAnnouncements from "./pages/staff/StaffAnnouncements";
 import StaffSupport from "./pages/staff/StaffSupport";
 import StaffPixoulPosts from "./pages/staff/StaffPixoulPosts";
+import StaffManagement from "./pages/staff/StaffManagement";
 import FromPixoul from "./pages/FromPixoul";
 import PartyGallery from "./pages/PartyGallery";
 import Checkout from "./pages/Checkout";
@@ -142,7 +143,6 @@ const AppLayout = ({ children }: { children: React.ReactNode }) => {
 
 const StaffLayout = ({ children }: { children: React.ReactNode }) => {
   const { user } = useAuth();
-  const { staffRole } = useStaff();
   
   return (
     <SidebarProvider>
@@ -332,6 +332,13 @@ const AppRoutes = () => {
         <StaffRoute>
           <StaffLayout>
             <StaffPixoulPosts />
+          </StaffLayout>
+        </StaffRoute>
+      } />
+      <Route path="/staff/management" element={
+        <StaffRoute>
+          <StaffLayout>
+            <StaffManagement />
           </StaffLayout>
         </StaffRoute>
       } />

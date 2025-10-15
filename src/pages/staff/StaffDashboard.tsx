@@ -1,21 +1,12 @@
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { useStaff } from '@/contexts/StaffContext';
-import { Settings, Calendar, Coffee, Image, BookOpen, HelpCircle, Bell } from 'lucide-react';
+import { useAuth } from '@/contexts/AuthContext';
+import { Settings, Calendar, Coffee, Image, BookOpen, HelpCircle, Users } from 'lucide-react';
 
 export default function StaffDashboard() {
-  const { staffRole, staffEmail, canManageRooms, canManageEvents, canManageSnacks, canModerateGallery, canManageGuides, canManageSupport } = useStaff();
-
-  const roleInfo = {
-    sara: { name: 'Sara', role: 'Room Manager', icon: Settings, color: 'bg-blue-500' },
-    ahmed: { name: 'Ahmed', role: 'Events Manager', icon: Calendar, color: 'bg-green-500' },
-    farah: { name: 'Farah', role: 'Snacks Manager', icon: Coffee, color: 'bg-orange-500' },
-    ali: { name: 'Ali', role: 'Gallery Moderator', icon: Image, color: 'bg-purple-500' },
-    noor: { name: 'Noor', role: 'Content Manager', icon: BookOpen, color: 'bg-pink-500' },
-    mohamed: { name: 'Mohamed', role: 'Support Manager', icon: HelpCircle, color: 'bg-red-500' },
-  };
-
-  const currentRole = staffRole ? roleInfo[staffRole] : null;
+  const { user } = useAuth();
+  const { isAdmin, canManageRooms, canManageEvents, canManageSnacks, canModerateGallery, canManageGuides, canManageSupport } = useStaff();
 
   return (
     <div className="p-6 space-y-6">
@@ -26,24 +17,40 @@ export default function StaffDashboard() {
         </p>
       </div>
 
-      {currentRole && (
-        <Card className="border-l-4" style={{ borderLeftColor: currentRole.color }}>
-          <CardHeader>
-            <div className="flex items-center gap-4">
-              <div className={`p-3 rounded-lg ${currentRole.color} text-white`}>
-                <currentRole.icon className="h-6 w-6" />
-              </div>
-              <div>
-                <CardTitle>{currentRole.name}</CardTitle>
-                <p className="text-sm text-muted-foreground">{currentRole.role}</p>
-              </div>
-              <Badge variant="secondary" className="ml-auto">{staffEmail}</Badge>
+      <Card>
+        <CardHeader>
+          <div className="flex items-center gap-4">
+            <div className="p-3 rounded-lg bg-primary text-primary-foreground">
+              <Users className="h-6 w-6" />
             </div>
-          </CardHeader>
-        </Card>
-      )}
+            <div>
+              <CardTitle>Staff Account</CardTitle>
+              <p className="text-sm text-muted-foreground">
+                {isAdmin ? 'Administrator' : 'Staff Member'}
+              </p>
+            </div>
+            <Badge variant="secondary" className="ml-auto">{user?.email}</Badge>
+          </div>
+        </CardHeader>
+      </Card>
 
       <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
+        {isAdmin && (
+          <Card>
+            <CardHeader>
+              <CardTitle className="flex items-center gap-2">
+                <Settings className="h-5 w-5" />
+                Staff Management
+              </CardTitle>
+            </CardHeader>
+            <CardContent>
+              <p className="text-sm text-muted-foreground">
+                Assign features to staff members
+              </p>
+            </CardContent>
+          </Card>
+        )}
+
         {canManageRooms && (
           <Card>
             <CardHeader>
