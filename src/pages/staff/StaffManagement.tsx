@@ -34,6 +34,35 @@ export default function StaffManagement() {
 
   const fetchAssignments = async () => {
     try {
+      // First, ensure default assignments exist
+      const allRoles = ['booking', 'events_programs', 'snacks', 'gallery', 'guides', 'support'];
+      const defaultEmails: Record<string, string> = {
+        'booking': 'sara@staffportal.com',
+        'events_programs': 'ahmed@staffportal.com',
+        'snacks': 'farah@staffportal.com',
+        'gallery': 'ali@staffportal.com',
+        'guides': 'noor@staffportal.com',
+        'support': 'mohamed@staffportal.com',
+      };
+
+      // Seed default assignments if they don't exist
+      for (const role of allRoles) {
+        const { error: upsertError } = await supabase
+          .from('staff_role_assignments')
+          .upsert({
+            role,
+            assigned_email: defaultEmails[role],
+          }, {
+            onConflict: 'role',
+            ignoreDuplicates: true,
+          });
+
+        if (upsertError) {
+          console.error('Error seeding role:', role, upsertError);
+        }
+      }
+
+      // Now fetch all assignments
       const { data, error } = await supabase
         .from('staff_role_assignments')
         .select('*')
@@ -41,22 +70,7 @@ export default function StaffManagement() {
 
       if (error) throw error;
       
-      // Map data to ensure all roles are present
-      const allRoles = ['booking', 'events_programs', 'snacks', 'gallery', 'guides', 'support'];
-      const assignmentMap = new Map(data?.map(a => [a.role, a]) || []);
-      
-      const completeAssignments = allRoles.map(role => {
-        const existing = assignmentMap.get(role);
-        return existing || {
-          id: `temp-${role}`,
-          role,
-          assigned_email: roleLabels[role]?.name.match(/\(([^)]+)\)/)?.[1]?.toLowerCase() + '@staffportal.com' || '',
-          created_at: new Date().toISOString(),
-          updated_at: new Date().toISOString()
-        };
-      });
-      
-      setAssignments(completeAssignments);
+      setAssignments(data || []);
     } catch (error) {
       toast({
         title: "Error",

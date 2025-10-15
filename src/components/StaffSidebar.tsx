@@ -31,7 +31,7 @@ export function StaffSidebar() {
 
   const staffItems = [
     { title: "Dashboard", url: "/staff", icon: Home, show: true },
-    { title: "Home", url: "/staff/home", icon: Users, show: true },
+    { title: "Home", url: "/staff/home", icon: Users, show: !isAdmin },
     { title: "Pixoul Posts", url: "/staff/pixoul-posts", icon: Megaphone, show: isPixoulStaff },
     { title: "Staff Management", url: "/staff/management", icon: Settings, show: canManageStaff },
     { title: "Room Management", url: "/staff/rooms", icon: Settings, show: canManageRooms },
