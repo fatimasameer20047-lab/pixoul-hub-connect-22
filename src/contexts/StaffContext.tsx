@@ -41,90 +41,87 @@ export const StaffProvider: React.FC<{ children: React.ReactNode }> = ({ childre
         setStaffEmail(null);
         setStaffRole(null);
         setIsAdmin(false);
+        setRoleAssignments({});
         return;
       }
 
       setIsStaff(true);
       setStaffEmail(user.email);
 
-      // Check if admin
-      if (user.email === 'admin@staffportal.com') {
+      const userEmailLower = user.email.toLowerCase();
+
+      // Check if admin (case-insensitive)
+      if (userEmailLower === 'admin@staffportal.com') {
         setIsAdmin(true);
         setStaffRole('admin');
+        // Admin still needs to fetch assignments for display purposes
+        const { data: assignments } = await supabase
+          .from('staff_role_assignments')
+          .select('role, assigned_email');
+        
+        if (assignments) {
+          const assignmentMap: Record<string, string> = {};
+          assignments.forEach((a) => {
+            assignmentMap[a.role] = a.assigned_email;
+          });
+          setRoleAssignments(assignmentMap);
+        }
         return;
       }
 
-    // Fetch role assignments from database
-    const { data: assignments, error } = await supabase
-      .from('staff_role_assignments')
-      .select('role, assigned_email');
+      // Fetch role assignments from database for non-admin staff
+      const { data: assignments } = await supabase
+        .from('staff_role_assignments')
+        .select('role, assigned_email');
 
-    console.log('Role assignments fetch result:', { assignments, error, userEmail: user.email });
+      if (assignments) {
+        const assignmentMap: Record<string, string> = {};
+        assignments.forEach((a) => {
+          assignmentMap[a.role] = a.assigned_email;
+        });
+        setRoleAssignments(assignmentMap);
 
-    if (assignments) {
-      const assignmentMap: Record<string, string> = {};
-      assignments.forEach((a) => {
-        assignmentMap[a.role] = a.assigned_email;
-      });
-      setRoleAssignments(assignmentMap);
-      console.log('Assignment map:', assignmentMap);
-
-        // Check if current user is assigned to any role
+        // Check if current user is assigned to any role (case-insensitive)
         const userRole = Object.entries(assignmentMap).find(
-          ([_, email]) => email === user.email
+          ([_, email]) => email.toLowerCase() === userEmailLower
         );
 
-      if (userRole) {
-        const [role] = userRole;
-        console.log('User role found:', role);
-        // Map database role to legacy role names
-        const roleMap: Record<string, 'sara' | 'ahmed' | 'farah' | 'ali' | 'noor' | 'mohamed'> = {
-          'booking': 'sara',
-          'events_programs': 'ahmed',
-          'snacks': 'farah',
-          'gallery': 'ali',
-          'guides': 'noor',
-          'support': 'mohamed',
-        };
-        setStaffRole(roleMap[role] || null);
-        console.log('Staff role set to:', roleMap[role]);
-      } else {
-        console.log('No role found for user:', user.email);
-        setStaffRole(null);
-      }
+        if (userRole) {
+          const [role] = userRole;
+          // Map database role to legacy role names
+          const roleMap: Record<string, 'sara' | 'ahmed' | 'farah' | 'ali' | 'noor' | 'mohamed'> = {
+            'booking': 'sara',
+            'events_programs': 'ahmed',
+            'snacks': 'farah',
+            'gallery': 'ali',
+            'guides': 'noor',
+            'support': 'mohamed',
+          };
+          setStaffRole(roleMap[role] || null);
+        } else {
+          setStaffRole(null);
+        }
       }
     };
 
     fetchRoleAssignments();
   }, [user]);
 
+  const userEmailLower = user?.email?.toLowerCase() || '';
+
   const value = {
     isStaff,
     staffEmail,
     staffRole,
     isAdmin,
-    canManageRooms: isAdmin || roleAssignments['booking'] === user?.email,
-    canManageEvents: isAdmin || roleAssignments['events_programs'] === user?.email,
-    canManageSnacks: isAdmin || roleAssignments['snacks'] === user?.email,
-    canModerateGallery: isAdmin || roleAssignments['gallery'] === user?.email,
-    canManageGuides: isAdmin || roleAssignments['guides'] === user?.email,
-    canManageSupport: isAdmin || roleAssignments['support'] === user?.email,
+    canManageRooms: isAdmin || roleAssignments['booking']?.toLowerCase() === userEmailLower,
+    canManageEvents: isAdmin || roleAssignments['events_programs']?.toLowerCase() === userEmailLower,
+    canManageSnacks: isAdmin || roleAssignments['snacks']?.toLowerCase() === userEmailLower,
+    canModerateGallery: isAdmin || roleAssignments['gallery']?.toLowerCase() === userEmailLower,
+    canManageGuides: isAdmin || roleAssignments['guides']?.toLowerCase() === userEmailLower,
+    canManageSupport: isAdmin || roleAssignments['support']?.toLowerCase() === userEmailLower,
     canManageStaff: isAdmin,
   };
-
-  console.log('Staff context value:', {
-    userEmail: user?.email,
-    isAdmin,
-    roleAssignments,
-    permissions: {
-      canManageRooms: value.canManageRooms,
-      canManageEvents: value.canManageEvents,
-      canManageSnacks: value.canManageSnacks,
-      canModerateGallery: value.canModerateGallery,
-      canManageGuides: value.canManageGuides,
-      canManageSupport: value.canManageSupport,
-    }
-  });
 
   return <StaffContext.Provider value={value}>{children}</StaffContext.Provider>;
 };

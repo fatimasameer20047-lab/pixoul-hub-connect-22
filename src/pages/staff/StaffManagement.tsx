@@ -79,8 +79,12 @@ export default function StaffManagement() {
     try {
       const { error } = await supabase
         .from('staff_role_assignments')
-        .update({ assigned_email: assignment.assigned_email })
-        .eq('id', assignment.id);
+        .upsert({
+          role: assignment.role,
+          assigned_email: assignment.assigned_email.toLowerCase(),
+        }, {
+          onConflict: 'role'
+        });
 
       if (error) throw error;
 
@@ -88,6 +92,9 @@ export default function StaffManagement() {
         title: "Success",
         description: `Updated ${roleLabels[assignment.role].name} assignment`,
       });
+
+      // Refresh assignments to get the correct IDs
+      await fetchAssignments();
     } catch (error: any) {
       toast({
         title: "Error",
