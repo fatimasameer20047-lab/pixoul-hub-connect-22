@@ -1019,30 +1019,6 @@ export type Database = {
         }
         Relationships: []
       }
-      staff_role_assignments: {
-        Row: {
-          assigned_email: string
-          created_at: string | null
-          id: string
-          role: string
-          updated_at: string | null
-        }
-        Insert: {
-          assigned_email: string
-          created_at?: string | null
-          id?: string
-          role: string
-          updated_at?: string | null
-        }
-        Update: {
-          assigned_email?: string
-          created_at?: string | null
-          id?: string
-          role?: string
-          updated_at?: string | null
-        }
-        Relationships: []
-      }
       user_roles: {
         Row: {
           created_at: string

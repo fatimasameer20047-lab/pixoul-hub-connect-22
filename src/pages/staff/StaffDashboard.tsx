@@ -4,10 +4,9 @@ import { useStaff } from '@/contexts/StaffContext';
 import { Settings, Calendar, Coffee, Image, BookOpen, HelpCircle, Bell } from 'lucide-react';
 
 export default function StaffDashboard() {
-  const { staffRole, staffEmail, isAdmin, canManageRooms, canManageEvents, canManageSnacks, canModerateGallery, canManageGuides, canManageSupport, canManageStaff } = useStaff();
+  const { staffRole, staffEmail, canManageRooms, canManageEvents, canManageSnacks, canModerateGallery, canManageGuides, canManageSupport } = useStaff();
 
   const roleInfo = {
-    admin: { name: 'Admin', role: 'System Administrator', icon: Settings, color: 'bg-red-600' },
     sara: { name: 'Sara', role: 'Room Manager', icon: Settings, color: 'bg-blue-500' },
     ahmed: { name: 'Ahmed', role: 'Events Manager', icon: Calendar, color: 'bg-green-500' },
     farah: { name: 'Farah', role: 'Snacks Manager', icon: Coffee, color: 'bg-orange-500' },
@@ -45,22 +44,6 @@ export default function StaffDashboard() {
       )}
 
       <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
-        {canManageStaff && (
-          <Card>
-            <CardHeader>
-              <CardTitle className="flex items-center gap-2">
-                <Settings className="h-5 w-5" />
-                Staff Management
-              </CardTitle>
-            </CardHeader>
-            <CardContent>
-              <p className="text-sm text-muted-foreground">
-                Assign and manage staff role assignments
-              </p>
-            </CardContent>
-          </Card>
-        )}
-
         {canManageRooms && (
           <Card>
             <CardHeader>
