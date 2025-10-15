@@ -19,7 +19,7 @@ import { Button } from "@/components/ui/button";
 export function StaffSidebar() {
   const { state } = useSidebar();
   const collapsed = state === 'collapsed';
-  const { isAdmin, canManageRooms, canManageEvents, canManageSnacks, canModerateGallery, canManageGuides, canManageSupport, canManageStaff } = useStaff();
+  const { canManageRooms, canManageEvents, canManageSnacks, canModerateGallery, canManageGuides, canManageSupport } = useStaff();
   const { signOut, user } = useAuth();
   const navigate = useNavigate();
   const isPixoulStaff = user?.email === 'pixoulgaming@staffportal.com';
@@ -30,10 +30,9 @@ export function StaffSidebar() {
   };
 
   const staffItems = [
-    { title: "Dashboard", url: "/staff", icon: Home, show: !isAdmin },
-    { title: "Home", url: "/staff/home", icon: Users, show: !isAdmin },
+    { title: "Dashboard", url: "/staff", icon: Home, show: true },
+    { title: "Home", url: "/staff/home", icon: Users, show: true },
     { title: "Pixoul Posts", url: "/staff/pixoul-posts", icon: Megaphone, show: isPixoulStaff },
-    { title: "Staff Management", url: "/staff/management", icon: Settings, show: canManageStaff },
     { title: "Room Management", url: "/staff/rooms", icon: Settings, show: canManageRooms },
     { title: "Events Management", url: "/staff/events", icon: Calendar, show: canManageEvents },
     { title: "Snacks Management", url: "/staff/snacks", icon: Coffee, show: canManageSnacks },
