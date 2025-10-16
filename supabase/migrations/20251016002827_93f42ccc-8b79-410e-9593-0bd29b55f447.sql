@@ -1,0 +1,2 @@
+-- Remove the unique constraint on assigned_email to allow same staff to manage multiple features
+ALTER TABLE staff_role_assignments DROP CONSTRAINT IF EXISTS staff_role_assignments_assigned_email_key;
