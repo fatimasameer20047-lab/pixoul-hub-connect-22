@@ -65,7 +65,7 @@ export default function Support() {
         .select('id')
         .eq('user_id', user.id)
         .eq('conversation_type', 'support')
-        .single();
+        .maybeSingle();
 
       if (existing) {
         setConversationId(existing.id);
@@ -78,6 +78,7 @@ export default function Support() {
             conversation_type: 'support',
             title: 'Support Request',
             status: 'active',
+            reference_id: null,
           })
           .select('id')
           .single();

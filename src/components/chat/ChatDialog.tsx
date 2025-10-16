@@ -61,19 +61,20 @@ export function ChatDialog({ isOpen, onClose, conversationType, referenceId, tit
         .select('id')
         .eq('reference_id', referenceId)
         .eq('conversation_type', conversationType)
-        .single();
+        .maybeSingle();
 
       let convId = existingConv?.id;
 
       // If no conversation exists, create one
-      if (!convId && !searchError) {
+      if (!convId) {
         const { data: newConv, error: createError } = await supabase
           .from('chat_conversations')
           .insert({
-            user_id: user.id,
+            user_id: user!.id,
             conversation_type: conversationType,
             reference_id: referenceId,
             title: title,
+            status: 'active',
           })
           .select('id')
           .single();
@@ -85,6 +86,27 @@ export function ChatDialog({ isOpen, onClose, conversationType, referenceId, tit
       if (convId) {
         setConversationId(convId);
         await fetchMessages(convId);
+        
+        // Set up real-time subscription for new messages
+        const channel = supabase
+          .channel(`chat-${convId}`)
+          .on(
+            'postgres_changes',
+            {
+              event: 'INSERT',
+              schema: 'public',
+              table: 'chat_messages',
+              filter: `conversation_id=eq.${convId}`,
+            },
+            (payload) => {
+              setMessages((prev) => [...prev, payload.new as ChatMessage]);
+            }
+          )
+          .subscribe();
+
+        return () => {
+          supabase.removeChannel(channel);
+        };
       }
     } catch (error: any) {
       toast({
@@ -133,8 +155,13 @@ export function ChatDialog({ isOpen, onClose, conversationType, referenceId, tit
 
       if (error) throw error;
 
+      // Update conversation last_message_at
+      await supabase
+        .from('chat_conversations')
+        .update({ last_message_at: new Date().toISOString() })
+        .eq('id', conversationId);
+
       setNewMessage('');
-      await fetchMessages(conversationId);
     } catch (error: any) {
       toast({
         title: "Error sending message",

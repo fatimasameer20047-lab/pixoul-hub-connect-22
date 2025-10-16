@@ -37,6 +37,17 @@ const timeSlots = [
   '16:00', '17:00', '18:00', '19:00', '20:00', '21:00'
 ];
 
+const isTimeInFuture = (selectedDate: Date, timeSlot: string): boolean => {
+  const now = new Date();
+  const [hours, minutes] = timeSlot.split(':').map(Number);
+  const slotDateTime = new Date(selectedDate);
+  slotDateTime.setHours(hours, minutes, 0, 0);
+  
+  // Add 30 minute buffer for same-day bookings
+  const bufferTime = new Date(now.getTime() + 30 * 60 * 1000);
+  return slotDateTime > bufferTime;
+};
+
 interface AvailableSlot {
   start_time: string;
   end_time: string;
@@ -145,6 +156,12 @@ export function RoomBookingForm({ room, onBack }: RoomBookingFormProps) {
     e.preventDefault();
     if (!user || !date || !startTime || !duration) return;
 
+    // Check if time is in the future
+    if (!isTimeInFuture(date, startTime)) {
+      setConflictError('Selected time must be at least 30 minutes in the future.');
+      return;
+    }
+
     // Check availability before submitting
     if (!isTimeSlotAvailable(startTime, parseInt(duration))) {
       setConflictError('This time slot is no longer available. Please choose another time.');
@@ -251,7 +268,13 @@ export function RoomBookingForm({ room, onBack }: RoomBookingFormProps) {
                             setDuration('');
                             setConflictError(null);
                           }}
-                          disabled={(date) => date < new Date()}
+                          disabled={(date) => {
+                            const today = new Date();
+                            today.setHours(0, 0, 0, 0);
+                            const checkDate = new Date(date);
+                            checkDate.setHours(0, 0, 0, 0);
+                            return checkDate < today;
+                          }}
                           className="pointer-events-auto"
                         />
                       </PopoverContent>
@@ -275,13 +298,15 @@ export function RoomBookingForm({ room, onBack }: RoomBookingFormProps) {
                         {timeSlots.map((time) => {
                           const durationNum = parseInt(duration) || 1;
                           const available = isTimeSlotAvailable(time, durationNum);
+                          const isFuture = date ? isTimeInFuture(date, time) : true;
+                          const isEnabled = available && isFuture;
                           return (
                             <SelectItem 
                               key={time} 
                               value={time}
-                              disabled={!available}
+                              disabled={!isEnabled}
                             >
-                              {time} {!available && '(Unavailable)'}
+                              {time} {!isEnabled && '(Unavailable)'}
                             </SelectItem>
                           );
                         })}
