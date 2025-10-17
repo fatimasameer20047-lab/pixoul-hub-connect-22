@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -6,7 +6,7 @@ import { Label } from '@/components/ui/label';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Badge } from '@/components/ui/badge';
-import { LogIn, UserPlus, Loader, Users } from 'lucide-react';
+import { LogIn, UserPlus, Loader, Users, Check, X } from 'lucide-react';
 import { supabase } from '@/integrations/supabase/client';
 import { useToast } from '@/hooks/use-toast';
 
@@ -15,28 +15,77 @@ export default function Auth() {
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [name, setName] = useState('');
+  const [username, setUsername] = useState('');
+  const [usernameAvailable, setUsernameAvailable] = useState<boolean | null>(null);
+  const [checkingUsername, setCheckingUsername] = useState(false);
   const navigate = useNavigate();
   const { toast } = useToast();
 
+  useEffect(() => {
+    const checkUsername = async () => {
+      if (!username || username.length < 3) {
+        setUsernameAvailable(null);
+        return;
+      }
+
+      if (!/^[a-zA-Z0-9_]+$/.test(username)) {
+        setUsernameAvailable(false);
+        return;
+      }
+
+      setCheckingUsername(true);
+      const { data } = await supabase
+        .from('profiles' as any)
+        .select('username')
+        .eq('username', username.toLowerCase())
+        .maybeSingle();
+
+      setCheckingUsername(false);
+      setUsernameAvailable(!data);
+    };
+
+    const timer = setTimeout(checkUsername, 500);
+    return () => clearTimeout(timer);
+  }, [username]);
+
   const handleSignUp = async (e: React.FormEvent) => {
     e.preventDefault();
+    
+    if (!usernameAvailable) {
+      toast({
+        title: "Username not available",
+        description: "Please choose a different username",
+        variant: "destructive",
+      });
+      return;
+    }
+    
     setIsLoading(true);
     
     try {
       const redirectUrl = `${window.location.origin}/`;
       
-      const { error } = await supabase.auth.signUp({
+      const { data: signUpData, error: signUpError } = await supabase.auth.signUp({
         email,
         password,
         options: {
           emailRedirectTo: redirectUrl,
           data: {
-            full_name: name
+            full_name: name,
+            username: username.toLowerCase()
           }
         }
       });
       
-      if (error) throw error;
+      if (signUpError) throw signUpError;
+
+      // Set username in profile
+      if (signUpData.user) {
+        await supabase
+          .from('profiles' as any)
+          .update({ username: username.toLowerCase() })
+          .eq('user_id', signUpData.user.id);
+      }
       
       toast({
         title: "Account created successfully!",
@@ -45,6 +94,7 @@ export default function Auth() {
       
       // Clear form
       setName('');
+      setUsername('');
       setEmail('');
       setPassword('');
       
@@ -178,6 +228,31 @@ export default function Auth() {
                     />
                   </div>
                   <div className="space-y-2">
+                    <Label htmlFor="signup-username">Username</Label>
+                    <div className="relative">
+                      <Input
+                        id="signup-username"
+                        type="text"
+                        placeholder="Choose a username"
+                        value={username}
+                        onChange={(e) => setUsername(e.target.value)}
+                        className="pr-10"
+                        required
+                        minLength={3}
+                        maxLength={20}
+                        pattern="[a-zA-Z0-9_]+"
+                      />
+                      <div className="absolute right-3 top-1/2 -translate-y-1/2">
+                        {checkingUsername && <Loader className="h-4 w-4 animate-spin text-muted-foreground" />}
+                        {!checkingUsername && usernameAvailable === true && <Check className="h-4 w-4 text-green-500" />}
+                        {!checkingUsername && usernameAvailable === false && <X className="h-4 w-4 text-red-500" />}
+                      </div>
+                    </div>
+                    <p className="text-xs text-muted-foreground">
+                      3-20 characters, letters, numbers, and underscores only
+                    </p>
+                  </div>
+                  <div className="space-y-2">
                     <Label htmlFor="signup-email">Email</Label>
                     <Input
                       id="signup-email"
@@ -200,7 +275,7 @@ export default function Auth() {
                       minLength={6}
                     />
                   </div>
-                  <Button type="submit" className="w-full" disabled={isLoading}>
+                  <Button type="submit" className="w-full" disabled={isLoading || usernameAvailable !== true}>
                     {isLoading ? (
                       <>
                         <Loader className="h-4 w-4 mr-2 animate-spin" />

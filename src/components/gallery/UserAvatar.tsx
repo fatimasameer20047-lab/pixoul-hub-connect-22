@@ -2,7 +2,7 @@ import React from 'react';
 
 interface UserAvatarProps {
   name: string;
-  size?: 'sm' | 'md' | 'lg';
+  size?: 'sm' | 'md' | 'lg' | 'xl';
   color?: string;
 }
 
@@ -18,7 +18,8 @@ export function UserAvatar({ name, size = 'md', color = '#6366F1' }: UserAvatarP
   const sizeClasses = {
     sm: 'w-6 h-6 text-xs',
     md: 'w-8 h-8 text-sm',
-    lg: 'w-10 h-10 text-base'
+    lg: 'w-10 h-10 text-base',
+    xl: 'w-20 h-20 text-2xl'
   };
 
   return (

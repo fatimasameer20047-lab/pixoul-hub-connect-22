@@ -38,6 +38,7 @@ import PartyGallery from "./pages/PartyGallery";
 import Checkout from "./pages/Checkout";
 import PaymentSuccess from "./pages/PaymentSuccess";
 import PaymentCancelled from "./pages/PaymentCancelled";
+import UserProfile from "./pages/UserProfile";
 
 const queryClient = new QueryClient();
 
