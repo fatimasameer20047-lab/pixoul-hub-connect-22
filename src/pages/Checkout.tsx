@@ -49,7 +49,7 @@ export default function Checkout() {
           payment_status: 'unpaid',
           payment_method: 'card',
           fulfillment: 'pickup',
-          status: 'pending'
+          status: 'new'
         })
         .select()
         .single();

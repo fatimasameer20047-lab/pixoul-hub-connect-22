@@ -11,6 +11,8 @@ import { useAuth } from '@/contexts/AuthContext';
 import { useToast } from '@/hooks/use-toast';
 import { format, parseISO, isBefore, startOfDay } from 'date-fns';
 import { ChatDialog } from '@/components/chat/ChatDialog';
+import { CheckoutDialog } from '@/components/payment/CheckoutDialog';
+import { formatPriceAEDUSD } from '@/lib/price-formatter';
 
 interface Event {
   id: string;
@@ -48,6 +50,8 @@ export function EventDetail({ event, onBack, onRegistrationComplete }: EventDeta
     notes: '',
   });
   const [isRegistering, setIsRegistering] = useState(false);
+  const [registrationId, setRegistrationId] = useState<string | null>(null);
+  const [showCheckout, setShowCheckout] = useState(false);
   const { user } = useAuth();
   const { toast } = useToast();
 
@@ -62,26 +66,50 @@ export function EventDetail({ event, onBack, onRegistrationComplete }: EventDeta
     setIsRegistering(true);
 
     try {
-      const { error } = await supabase
+      const partySize = parseInt(registrationData.partySize);
+      const totalAmount = event.price * partySize;
+
+      // Create registration with unpaid status
+      const { data: registration, error } = await supabase
         .from('event_registrations')
         .insert({
           user_id: user.id,
           event_id: event.id,
           participant_name: registrationData.participantName,
           participant_email: registrationData.participantEmail,
-          party_size: parseInt(registrationData.partySize),
+          party_size: partySize,
           notes: registrationData.notes,
-        });
+          payment_status: 'unpaid',
+          status: 'pending',
+          amount_paid: totalAmount,
+        })
+        .select()
+        .single();
 
       if (error) throw error;
 
-      toast({
-        title: "Registration successful!",
-        description: "You've been registered for this event.",
-      });
+      if (event.price > 0) {
+        // If event has a price, open checkout dialog
+        setRegistrationId(registration.id);
+        setShowCheckout(true);
+      } else {
+        // Free event - confirm immediately
+        await supabase
+          .from('event_registrations')
+          .update({ 
+            payment_status: 'paid',
+            status: 'confirmed' 
+          })
+          .eq('id', registration.id);
 
-      setShowRegistrationForm(false);
-      onRegistrationComplete();
+        toast({
+          title: "Registration successful!",
+          description: "You've been registered for this event.",
+        });
+
+        setShowRegistrationForm(false);
+        onRegistrationComplete();
+      }
     } catch (error: any) {
       if (error.code === '23505') {
         toast({
@@ -99,6 +127,16 @@ export function EventDetail({ event, onBack, onRegistrationComplete }: EventDeta
     } finally {
       setIsRegistering(false);
     }
+  };
+
+  const handleCheckoutSuccess = () => {
+    toast({
+      title: "Payment successful!",
+      description: "Your event registration is confirmed.",
+    });
+    setShowRegistrationForm(false);
+    setShowCheckout(false);
+    onRegistrationComplete();
   };
 
   const handleInputChange = (field: string, value: string) => {
@@ -192,7 +230,7 @@ export function EventDetail({ event, onBack, onRegistrationComplete }: EventDeta
                   {event.price > 0 && (
                     <div className="flex justify-between font-semibold">
                       <span>Total:</span>
-                      <span>${(event.price * parseInt(registrationData.partySize)).toFixed(2)}</span>
+                      <span>{formatPriceAEDUSD(event.price * parseInt(registrationData.partySize))}</span>
                     </div>
                   )}
                 </div>
@@ -203,11 +241,24 @@ export function EventDetail({ event, onBack, onRegistrationComplete }: EventDeta
                 className="w-full" 
                 disabled={!registrationData.participantName || !registrationData.participantEmail || isRegistering}
               >
-                {isRegistering ? 'Registering...' : 'Complete Registration'}
+                {isRegistering ? 'Registering...' : (event.price > 0 ? 'Proceed to Payment' : 'Complete Registration')}
               </Button>
             </form>
           </CardContent>
         </Card>
+
+        {registrationId && showCheckout && (
+          <CheckoutDialog
+            open={showCheckout}
+            onOpenChange={setShowCheckout}
+            type="event"
+            referenceId={registrationId}
+            amount={event.price * parseInt(registrationData.partySize)}
+            itemName={event.title}
+            description={`Event registration for ${registrationData.partySize} ${parseInt(registrationData.partySize) === 1 ? 'person' : 'people'}`}
+            onSuccess={handleCheckoutSuccess}
+          />
+        )}
       </div>
     );
   }
@@ -277,7 +328,7 @@ export function EventDetail({ event, onBack, onRegistrationComplete }: EventDeta
                   {event.price > 0 && (
                     <div className="flex items-center gap-2">
                       <DollarSign className="h-4 w-4" />
-                      ${event.price} per person
+                      {formatPriceAEDUSD(event.price)} per person
                     </div>
                   )}
                   {event.location && (
