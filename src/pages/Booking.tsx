@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useMemo, useState, useEffect } from 'react';
 import { Calendar, Clock, Users, MapPin, Star, MessageCircle, Settings, BarChart3 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
@@ -7,13 +7,15 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/contexts/AuthContext';
 import { useToast } from '@/hooks/use-toast';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, useSearchParams } from 'react-router-dom';
 import { RoomBookingForm } from '@/components/booking/RoomBookingForm';
 import { PartyRequestForm } from '@/components/booking/PartyRequestForm';
 import { MyBookings } from '@/components/booking/MyBookings';
 import { BookingDashboard } from '@/components/booking/BookingDashboard';
 import { formatPriceAEDUSD } from '@/lib/price-formatter';
 import { ImageViewer } from '@/components/ui/image-viewer';
+import { Sheet, SheetContent, SheetHeader, SheetTitle, SheetFooter } from '@/components/ui/sheet';
+import { PackagesOffersBooking } from '@/components/booking/PackagesOffersBooking';
 
 interface Room {
   id: string;
@@ -34,14 +36,42 @@ export default function Booking() {
   const [showDashboard, setShowDashboard] = useState(false);
   const [viewerImages, setViewerImages] = useState<string[]>([]);
   const [showViewer, setShowViewer] = useState(false);
+  // MOBILE: Quick view sheet for room details/amenities
+  const [quickViewOpen, setQuickViewOpen] = useState(false);
+  const [quickViewRoom, setQuickViewRoom] = useState<Room | null>(null);
   const { user } = useAuth();
   const navigate = useNavigate();
   const isDemoMode = import.meta.env.DEMO_MODE === 'true';
   const { toast } = useToast();
+  const [searchParams, setSearchParams] = useSearchParams();
+  const tabParam = searchParams.get('tab');
+  const allowedTabs = useMemo(
+    () => ['rooms', 'packages', 'parties', 'my-bookings', ...(isDemoMode ? ['dashboard'] : [])],
+    [isDemoMode]
+  );
+  const [activeTab, setActiveTab] = useState(
+    tabParam && allowedTabs.includes(tabParam) ? tabParam : 'rooms'
+  );
+
+  useEffect(() => {
+    if (activeTab === 'packages') {
+      const packagesSection = document.getElementById('packages-offers');
+      if (packagesSection) {
+        packagesSection.scrollIntoView({ behavior: 'smooth', block: 'start' });
+      }
+    }
+  }, [activeTab]);
 
   useEffect(() => {
     fetchRooms();
   }, []);
+
+  useEffect(() => {
+    const nextTab = searchParams.get('tab');
+    if (nextTab && allowedTabs.includes(nextTab) && nextTab !== activeTab) {
+      setActiveTab(nextTab);
+    }
+  }, [searchParams, allowedTabs, activeTab]);
 
   const fetchRooms = async () => {
     const { data, error } = await supabase
@@ -86,6 +116,13 @@ export default function Booking() {
     setShowPartyForm(true);
   };
 
+  const handleTabChange = (value: string) => {
+    setActiveTab(value);
+    const params = new URLSearchParams(searchParams);
+    params.set('tab', value);
+    setSearchParams(params, { replace: true });
+  };
+
   const getRoomTypeIcon = (type: string) => {
     switch (type) {
       case 'vip': return <Star className="h-4 w-4" />;
@@ -119,7 +156,7 @@ export default function Booking() {
   }
 
   return (
-    <div className="container mx-auto px-4 py-8">
+    <div className="container mx-auto px-4 py-8 overflow-x-hidden">
       <div className="mb-8">
         <div className="flex items-center justify-between">
           <div>
@@ -133,10 +170,14 @@ export default function Booking() {
         </div>
       </div>
 
-        <Tabs defaultValue="rooms" className="space-y-6">
-        <TabsList className={`grid w-full ${isDemoMode ? 'grid-cols-4' : 'grid-cols-3'}`}>
+        <Tabs value={activeTab} onValueChange={handleTabChange} className="space-y-6">
+        <TabsList
+          className="grid w-full"
+          style={{ gridTemplateColumns: `repeat(${isDemoMode ? 5 : 4}, minmax(0, 1fr))` }}
+        >
           <TabsTrigger value="rooms">Gaming Rooms</TabsTrigger>
           <TabsTrigger value="parties">Organize Party</TabsTrigger>
+          <TabsTrigger value="packages">Packages &amp; Offers</TabsTrigger>
           <TabsTrigger value="my-bookings">My Bookings</TabsTrigger>
           {isDemoMode && (
             <TabsTrigger value="dashboard">Staff Dashboard</TabsTrigger>
@@ -144,7 +185,53 @@ export default function Booking() {
         </TabsList>
 
         <TabsContent value="rooms" className="space-y-6">
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+          {/* MOBILE: 2-column grid, square thumbnails, compact content */}
+          <div className="grid grid-cols-2 gap-4 md:hidden">
+            {rooms.map((room) => (
+              <Card
+                key={room.id}
+                className="group hover:shadow-lg hover:shadow-primary/20 transition-all duration-300 overflow-hidden"
+                onClick={() => {
+                  setQuickViewRoom(room);
+                  setQuickViewOpen(true);
+                }}
+              >
+                {room.image_url && (
+                  <div className="aspect-square w-full overflow-hidden">
+                    <img
+                      src={room.image_url}
+                      alt={room.name}
+                      className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300"
+                    />
+                  </div>
+                )}
+                <CardHeader className="py-3">
+                  <div className="flex items-center justify-between">
+                    <CardTitle className="text-base truncate" title={room.name}>{room.name}</CardTitle>
+                    <Badge variant={room.type === 'vip' ? 'default' : 'secondary'} className="text-[11px]">
+                      {room.type.toUpperCase()}
+                    </Badge>
+                  </div>
+                </CardHeader>
+                <CardContent className="space-y-2">
+                  <div className="space-y-1 text-xs">
+                    <div className="flex items-center gap-1">
+                      <Users className="h-3.5 w-3.5" />
+                      <span>Up to {room.capacity} players</span>
+                    </div>
+                    <div className="flex items-center gap-1">
+                      <Clock className="h-3.5 w-3.5" />
+                      <span>{formatPriceAEDUSD(room.hourly_rate)}/hour</span>
+                    </div>
+                  </div>
+                  <Button onClick={(e) => { e.stopPropagation(); handleBookRoom(room); }} className="w-full h-9 text-sm">Book</Button>
+                </CardContent>
+              </Card>
+            ))}
+          </div>
+
+          {/* Desktop grid */}
+          <div className="hidden md:grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
             {rooms.map((room) => (
               <Card key={room.id} className="group hover:shadow-lg hover:shadow-primary/20 transition-all duration-300 overflow-hidden">
                 {room.image_url && (
@@ -177,33 +264,17 @@ export default function Booking() {
                   <p className="text-sm text-muted-foreground">{room.description}</p>
                   
                   <div className="space-y-2">
-                    <div className="flex items-center gap-2 text-sm">
+                    <div className="flex items-center gap-2 text-xs">
                       <Users className="h-4 w-4" />
                       Up to {room.capacity} players
                     </div>
-                    <div className="flex items-center gap-2 text-sm">
+                    <div className="flex items-center gap-2 text-xs">
                       <Clock className="h-4 w-4" />
                       {formatPriceAEDUSD(room.hourly_rate)}/hour
                     </div>
                   </div>
 
-                  <div className="space-y-2">
-                    <p className="text-sm font-medium">Amenities:</p>
-                    <div className="flex flex-wrap gap-1">
-                      {room.amenities.map((amenity, index) => (
-                        <Badge key={index} variant="outline" className="text-xs">
-                          {amenity}
-                        </Badge>
-                      ))}
-                    </div>
-                  </div>
-
-                  <Button 
-                    onClick={() => handleBookRoom(room)}
-                    className="w-full"
-                  >
-                    Book Room
-                  </Button>
+                  <Button onClick={() => handleBookRoom(room)} className="w-full h-9 text-sm">Book</Button>
                 </CardContent>
               </Card>
             ))}
@@ -250,6 +321,10 @@ export default function Booking() {
           </Card>
         </TabsContent>
 
+        <TabsContent value="packages" className="space-y-6">
+          <PackagesOffersBooking />
+        </TabsContent>
+
         <TabsContent value="my-bookings">
           <MyBookings />
         </TabsContent>
@@ -266,6 +341,52 @@ export default function Booking() {
         open={showViewer}
         onOpenChange={setShowViewer}
       />
+
+      {/* MOBILE: Quick View Sheet for Room Amenities */}
+      <Sheet open={quickViewOpen} onOpenChange={setQuickViewOpen}>
+        <SheetContent side="bottom" className="md:hidden h-[85vh] p-0">
+          {quickViewRoom && (
+            <div className="flex flex-col h-full">
+              {quickViewRoom.image_url && (
+                <div className="aspect-square w-full overflow-hidden">
+                  <img
+                    src={quickViewRoom.image_url}
+                    alt={quickViewRoom.name}
+                    className="w-full h-full object-cover"
+                  />
+                </div>
+              )}
+              <div className="p-4 space-y-3 overflow-y-auto">
+                <SheetHeader>
+                  <SheetTitle className="text-lg">{quickViewRoom.name}</SheetTitle>
+                </SheetHeader>
+                <div className="flex items-center justify-between">
+                  <Badge variant={quickViewRoom.type === 'vip' ? 'default' : 'secondary'} className="text-[11px]">
+                    {quickViewRoom.type.toUpperCase()}
+                  </Badge>
+                  <div className="text-sm">{formatPriceAEDUSD(quickViewRoom.hourly_rate)}/hour</div>
+                </div>
+                <div className="space-y-2">
+                  <p className="text-sm text-muted-foreground">{quickViewRoom.description}</p>
+                </div>
+                <div className="space-y-2">
+                  <p className="text-sm font-medium">Amenities</p>
+                  <div className="flex flex-wrap gap-1">
+                    {quickViewRoom.amenities.map((amenity, index) => (
+                      <Badge key={index} variant="outline" className="text-[11px]">
+                        {amenity}
+                      </Badge>
+                    ))}
+                  </div>
+                </div>
+              </div>
+              <SheetFooter className="p-4 border-t mt-auto">
+                <Button className="w-full h-10" onClick={() => { handleBookRoom(quickViewRoom); setQuickViewOpen(false); }}>Book</Button>
+              </SheetFooter>
+            </div>
+          )}
+        </SheetContent>
+      </Sheet>
     </div>
   );
 }

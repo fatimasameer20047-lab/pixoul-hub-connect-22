@@ -14,7 +14,7 @@ interface GalleryItem {
   id: string;
   url: string;
   caption: string;
-  visibility: 'private' | 'public';
+  visibility: 'private' | 'pending' | 'public';
   created_at: string;
   user_id: string;
   author_name?: string;
@@ -54,7 +54,7 @@ export default function Gallery() {
       if (error) throw error;
       setMyPhotos((data || []).map(item => ({
         ...item,
-        visibility: item.visibility as 'private' | 'public',
+        visibility: (item.visibility as any) as 'private' | 'pending' | 'public',
         caption: item.caption || '',
         comment_count: item.comment_count || 0
       })));
@@ -113,7 +113,7 @@ export default function Gallery() {
         
         return {
           ...item,
-          visibility: item.visibility as 'private' | 'public',
+          visibility: (item.visibility as any) as 'private' | 'pending' | 'public',
           caption: item.caption || '',
           author_name: authorName,
           user_has_liked: likesLookup.has(item.id),
@@ -174,37 +174,46 @@ export default function Gallery() {
     fetchPhotoStats();
   }, [myPhotos, communityPhotos]);
 
-  const handleUpload = async (file: File, visibility: 'private' | 'public', caption: string) => {
+  const handleUpload = async (feedFile: File, thumbFile: File, visibility: 'private' | 'public', caption: string) => {
     try {
       // Upload to Supabase Storage
-      const fileExt = file.name.split('.').pop();
-      const fileName = `${Date.now()}.${fileExt}`;
-      const filePath = `${userId}/${fileName}`;
+      const feedPath = `${userId}/${feedFile.name}`;
+      const thumbPath = `${userId}/${thumbFile.name}`;
 
       const { error: uploadError } = await supabase.storage
         .from('gallery')
-        .upload(filePath, file);
+        .upload(feedPath, feedFile, { upsert: true });
 
       if (uploadError) throw uploadError;
+
+      const { error: uploadThumbError } = await supabase.storage
+        .from('gallery')
+        .upload(thumbPath, thumbFile, { upsert: true });
+
+      if (uploadThumbError) throw uploadThumbError;
 
       // Get public URL
       const { data: { publicUrl } } = supabase.storage
         .from('gallery')
-        .getPublicUrl(filePath);
+        .getPublicUrl(feedPath);
 
-      // Save to database - all new posts need staff approval
+      // Save to database
       const { error: dbError } = await supabase
         .from('gallery_items')
         .insert({
           user_id: userId,
           url: publicUrl,
-          visibility: 'private', // All posts start as private for moderation
+          // If user chose Submit for Approval, mark as pending; else keep private only
+          visibility: visibility === 'public' ? 'pending' : 'private',
           caption
         });
 
       if (dbError) throw dbError;
-
-      toast.success('Photo uploaded and sent for approval!');
+      if (visibility === 'public') {
+        toast.success('Photo uploaded and sent for approval.');
+      } else {
+        toast.success('Photo saved privately.');
+      }
       
       // Refresh photos
       await fetchMyPhotos();
@@ -279,33 +288,43 @@ export default function Gallery() {
 
   const handleChangeVisibility = async (photoId: string, newVisibility: 'private' | 'public') => {
     try {
+      // Enforce approval: private -> public becomes pending
+      const targetVisibility = newVisibility === 'public' ? 'pending' : 'private';
       const { error } = await supabase
         .from('gallery_items')
-        .update({ visibility: newVisibility })
+        .update({ visibility: targetVisibility })
         .eq('id', photoId);
 
       if (error) throw error;
-
-      toast.success(`Photo is now ${newVisibility}`);
+      if (targetVisibility === 'pending') {
+        toast.success('Submitted for approval.');
+      } else {
+        toast.success('Photo is now private');
+      }
       
       // Refresh photos
       await fetchMyPhotos();
       await fetchCommunityPhotos();
     } catch (error) {
       console.error('Error changing visibility:', error);
-      toast.error('Failed to change visibility');
+      if (newVisibility === 'public') {
+        toast.error("Couldn't submit for approval. Please try again.");
+      } else {
+        toast.error('Failed to change visibility. Please try again.');
+      }
     }
   };
 
   const filteredMyPhotos = myPhotos.filter(photo => {
     if (myFilter === 'all') return true;
+    if (myFilter === 'private') return photo.visibility === 'private' || photo.visibility === 'pending';
     return photo.visibility === myFilter;
   });
 
   const getFilterCounts = () => {
     return {
       all: myPhotos.length,
-      private: myPhotos.filter(p => p.visibility === 'private').length,
+      private: myPhotos.filter(p => p.visibility === 'private' || p.visibility === 'pending').length,
       public: myPhotos.filter(p => p.visibility === 'public').length,
     };
   };
@@ -313,7 +332,7 @@ export default function Gallery() {
   const filterCounts = getFilterCounts();
 
   return (
-    <div className="p-6 space-y-6">
+    <div className="p-6 space-y-6 overflow-x-hidden">
       <div className="space-y-2">
         <h1 className="text-3xl font-bold tracking-tight">Gallery</h1>
         <p className="text-muted-foreground">
@@ -322,16 +341,23 @@ export default function Gallery() {
       </div>
 
       <Tabs defaultValue="community" className="space-y-4">
-        <TabsList>
-          <TabsTrigger value="community" className="flex items-center gap-2">
-            <Users className="h-4 w-4" />
-            Community
-          </TabsTrigger>
-          <TabsTrigger value="my-library" className="flex items-center gap-2">
-            <User className="h-4 w-4" />
-            My Library
-          </TabsTrigger>
-        </TabsList>
+        {/* Header (tabs + upload) */}
+        <div className="flex items-center justify-between px-0">
+          <TabsList>
+            <TabsTrigger value="community" className="flex items-center gap-2">
+              <Users className="h-4 w-4" />
+              Community
+            </TabsTrigger>
+            <TabsTrigger value="my-library" className="flex items-center gap-2">
+              <User className="h-4 w-4" />
+              My Library
+            </TabsTrigger>
+          </TabsList>
+          <Button variant="secondary" className="ml-3" onClick={() => setIsUploadModalOpen(true)}>
+            <Upload className="h-4 w-4 mr-2" />
+            Upload Photo
+          </Button>
+        </div>
 
         <TabsContent value="community" className="space-y-4">
           <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
@@ -402,37 +428,32 @@ export default function Gallery() {
         </TabsContent>
 
         <TabsContent value="my-library" className="space-y-4">
-          <div className="flex items-center justify-between">
-            <div className="flex items-center gap-2">
-              <Filter className="h-4 w-4" />
-              <div className="flex gap-2">
-                <Button 
-                  variant={myFilter === 'all' ? 'default' : 'outline'} 
-                  size="sm"
-                  onClick={() => setMyFilter('all')}
-                >
-                  All ({filterCounts.all})
-                </Button>
-                <Button 
-                  variant={myFilter === 'private' ? 'default' : 'outline'} 
-                  size="sm"
-                  onClick={() => setMyFilter('private')}
-                >
-                  Private ({filterCounts.private})
-                </Button>
-                <Button 
-                  variant={myFilter === 'public' ? 'default' : 'outline'} 
-                  size="sm"
-                  onClick={() => setMyFilter('public')}
-                >
-                  Public ({filterCounts.public})
-                </Button>
-              </div>
+          {/* Filter chips row only (Upload moved to header) */}
+          <div className="flex items-center gap-2">
+            <Filter className="h-4 w-4" />
+            <div className="flex gap-2">
+              <Button 
+                variant={myFilter === 'all' ? 'default' : 'outline'} 
+                size="sm"
+                onClick={() => setMyFilter('all')}
+              >
+                All ({filterCounts.all})
+              </Button>
+              <Button 
+                variant={myFilter === 'private' ? 'default' : 'outline'} 
+                size="sm"
+                onClick={() => setMyFilter('private')}
+              >
+                Private ({filterCounts.private})
+              </Button>
+              <Button 
+                variant={myFilter === 'public' ? 'default' : 'outline'} 
+                size="sm"
+                onClick={() => setMyFilter('public')}
+              >
+                Public ({filterCounts.public})
+              </Button>
             </div>
-            <Button onClick={() => setIsUploadModalOpen(true)}>
-              <Upload className="h-4 w-4 mr-2" />
-              Upload Photo
-            </Button>
           </div>
 
           <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">

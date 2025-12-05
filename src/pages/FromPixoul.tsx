@@ -3,6 +3,9 @@ import { supabase } from '@/integrations/supabase/client';
 import { Card } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Skeleton } from '@/components/ui/skeleton';
+import { useSearchParams } from 'react-router-dom';
+
+type PixoulChannel = 'from_pixoul' | 'packages_offers';
 
 interface PixoulPost {
   id: string;
@@ -13,27 +16,36 @@ interface PixoulPost {
   created_at: string;
   pinned: boolean;
   published: boolean;
+  channel: PixoulChannel;
 }
 
 const FromPixoul = () => {
   const [posts, setPosts] = useState<PixoulPost[]>([]);
   const [isLoading, setIsLoading] = useState(true);
+  const [searchParams] = useSearchParams();
+  const channelParam = searchParams.get('channel') === 'packages_offers' ? 'packages_offers' : 'from_pixoul';
+  const sectionTitle = channelParam === 'packages_offers' ? 'Packages & Offers' : 'From Pixoul';
 
   useEffect(() => {
-    fetchPixoulPosts();
-  }, []);
+    fetchPixoulPosts(channelParam);
+  }, [channelParam]);
 
-  const fetchPixoulPosts = async () => {
+  const fetchPixoulPosts = async (channel: PixoulChannel) => {
     try {
       const { data, error } = await supabase
         .from('pixoul_posts')
         .select('*')
         .eq('published', true)
+        .eq('channel', channel)
         .order('pinned', { ascending: false })
         .order('created_at', { ascending: false });
 
       if (error) throw error;
-      setPosts((data as PixoulPost[]) || []);
+      const normalized = ((data as PixoulPost[] | null) || []).map(post => ({
+        ...post,
+        channel: post.channel ?? 'from_pixoul',
+      }));
+      setPosts(normalized);
     } catch (error) {
       console.error('Error fetching Pixoul posts:', error);
     } finally {
@@ -53,7 +65,7 @@ const FromPixoul = () => {
   return (
     <div className="min-h-screen bg-background">
       <div className="max-w-4xl mx-auto py-8 px-6">
-        <h1 className="text-3xl font-bold mb-6">From Pixoul</h1>
+        <h1 className="text-3xl font-bold mb-6">{sectionTitle}</h1>
 
         {isLoading ? (
           <div className="space-y-6">
@@ -70,12 +82,14 @@ const FromPixoul = () => {
           </div>
         ) : posts.length === 0 ? (
           <p className="text-muted-foreground text-center py-12">
-            No posts from Pixoul yet.
+            {sectionTitle === 'Packages & Offers'
+              ? 'No Packages & Offers posts yet.'
+              : 'No posts from Pixoul yet.'}
           </p>
         ) : (
           <div className="space-y-6">
             {posts.map((post) => (
-              <Card key={post.id} className="overflow-hidden relative">
+              <Card key={post.id} id={`post-${post.id}`} className="overflow-hidden relative">
                 {post.pinned && (
                   <Badge className="absolute top-4 right-4 z-10" variant="destructive">
                     Pinned

@@ -6,11 +6,12 @@ import { Textarea } from '@/components/ui/textarea';
 import { RadioGroup, RadioGroupItem } from '@/components/ui/radio-group';
 import { Progress } from '@/components/ui/progress';
 import { Eye, EyeOff, Upload, Image as ImageIcon } from 'lucide-react';
+// Cropper removed for simple posting
 
 interface PhotoUploadModalProps {
   isOpen: boolean;
   onClose: () => void;
-  onUpload: (file: File, visibility: 'private' | 'public', caption: string) => Promise<void>;
+  onUpload: (feedFile: File, thumbFile: File, visibility: 'private' | 'public', caption: string) => Promise<void>;
 }
 
 export default function PhotoUploadModal({ isOpen, onClose, onUpload }: PhotoUploadModalProps) {
@@ -20,10 +21,24 @@ export default function PhotoUploadModal({ isOpen, onClose, onUpload }: PhotoUpl
   const [isUploading, setIsUploading] = useState(false);
   const [step, setStep] = useState<'select' | 'details'>('select');
   const [uploadProgress, setUploadProgress] = useState(0);
+  // No crop/export step; generate on post
+  const [exported, setExported] = useState<null>(null);
+  const [error, setError] = useState<string | null>(null);
 
   const handleFileSelect = (event: React.ChangeEvent<HTMLInputElement>) => {
     const file = event.target.files?.[0];
     if (file) {
+      // Basic validation
+      setError(null);
+      const validTypes = ['image/jpeg', 'image/png', 'image/webp'];
+      if (!validTypes.includes(file.type)) {
+        setError('Unsupported file type. Use JPG, PNG, or WEBP.');
+        return;
+      }
+      if (file.size > 8 * 1024 * 1024) {
+        setError('Large image selected. We will compress it on upload.');
+      }
+
       setSelectedFile(file);
       setStep('details');
     }
@@ -47,7 +62,31 @@ export default function PhotoUploadModal({ isOpen, onClose, onUpload }: PhotoUpl
         });
       }, 100);
 
-      await onUpload(selectedFile, visibility, caption);
+      // Generate feed + thumbnail directly from selected file
+      const { generateFeedAndThumbFromFile } = await import('@/lib/image-utils');
+      const { feed, thumb } = await generateFeedAndThumbFromFile(selectedFile, 1080, 320);
+
+      let feedBlob = feed;
+
+      // Optionally recompress if still too large (> ~8MB)
+      const maxBytes = 8 * 1024 * 1024;
+      if (feedBlob.size > maxBytes) {
+        const recompressed = await recompress(feedBlob, 0.8);
+        feedBlob = recompressed.size < feedBlob.size ? recompressed : feedBlob;
+      }
+
+      // Build Files from processed blobs
+      const time = Date.now();
+      const feedName = `${time}_feed.jpg`;
+      const thumbName = `${time}_thumb.jpg`;
+      const feedFile = new File([feedBlob], feedName, { type: 'image/jpeg' });
+      const thumbFile = new File([thumb], thumbName, { type: 'image/jpeg' });
+
+      // Wrap onUpload to upload feed size; Then also upload thumb via the same handler by convention
+      // We only pass feed file to DB; storage uploads of both will be handled in page's onUpload
+      // Combine files via DataTransfer-like approach is not supported; adjust onUpload implementation to accept feed file
+      // For now, upload feed file via onUpload, then upload thumbnail via direct storage on the page after resolve if needed.
+      await onUpload(feedFile, thumbFile, visibility, caption);
       
       clearInterval(progressInterval);
       setUploadProgress(100);
@@ -56,6 +95,8 @@ export default function PhotoUploadModal({ isOpen, onClose, onUpload }: PhotoUpl
       setSelectedFile(null);
       setCaption('');
       setVisibility('private');
+      setExported(null);
+      setStep('select');
       onClose();
     } catch (error) {
       console.error('Upload error:', error);
@@ -64,6 +105,29 @@ export default function PhotoUploadModal({ isOpen, onClose, onUpload }: PhotoUpl
       setUploadProgress(0);
     }
   };
+
+  async function recompress(blob: Blob, quality = 0.8): Promise<Blob> {
+    const url = URL.createObjectURL(blob);
+    try {
+      const img = new Image();
+      await new Promise<void>((resolve, reject) => {
+        img.onload = () => resolve();
+        img.onerror = reject;
+        img.src = url;
+      });
+      const canvas = document.createElement('canvas');
+      canvas.width = img.width;
+      canvas.height = img.height;
+      const ctx = canvas.getContext('2d');
+      if (!ctx) return blob;
+      ctx.imageSmoothingQuality = 'high';
+      ctx.drawImage(img, 0, 0);
+      const out: Blob = await new Promise((resolve) => canvas.toBlob(b => resolve(b as Blob), 'image/jpeg', quality));
+      return out;
+    } finally {
+      URL.revokeObjectURL(url);
+    }
+  }
 
   const handleClose = () => {
     if (!isUploading) {
@@ -113,7 +177,7 @@ export default function PhotoUploadModal({ isOpen, onClose, onUpload }: PhotoUpl
                       <span className="text-muted-foreground"> or drag and drop</span>
                     </label>
                   </div>
-                  <p className="text-xs text-muted-foreground">PNG, JPG, WEBP up to 20MB</p>
+                  <p className="text-xs text-muted-foreground">PNG, JPG, WEBP up to 8MB (we will compress if needed)</p>
                 </div>
               )}
               <input
@@ -125,9 +189,13 @@ export default function PhotoUploadModal({ isOpen, onClose, onUpload }: PhotoUpl
                 className="hidden"
               />
             </div>
+            {error && <div className="text-xs text-amber-600">{error}</div>}
           </div>
 
+          {/* No cropper step: go straight to details */}
+
           {/* Caption */}
+          {step === 'details' && (
           <div className="space-y-2">
             <Label htmlFor="caption">Caption (optional)</Label>
             <Textarea
@@ -143,8 +211,10 @@ export default function PhotoUploadModal({ isOpen, onClose, onUpload }: PhotoUpl
               {caption.length}/300
             </div>
           </div>
+          )}
 
           {/* Visibility */}
+          {step === 'details' && (
           <div className="space-y-3">
             <Label>Visibility</Label>
             <p className="text-sm text-muted-foreground">
@@ -177,6 +247,7 @@ export default function PhotoUploadModal({ isOpen, onClose, onUpload }: PhotoUpl
               </div>
             </RadioGroup>
           </div>
+          )}
 
           {/* Upload progress */}
           {isUploading && (

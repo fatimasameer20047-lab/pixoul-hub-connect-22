@@ -1,18 +1,30 @@
-import { Sheet, SheetContent, SheetHeader, SheetTitle, SheetTrigger } from '@/components/ui/sheet';
+import { useEffect, useState } from 'react';
+import { Sheet, SheetClose, SheetContent, SheetHeader, SheetTitle, SheetTrigger } from '@/components/ui/sheet';
 import { Button } from '@/components/ui/button';
-import { ShoppingCart, Minus, Plus, Trash2 } from 'lucide-react';
+import { ShoppingCart, Minus, Plus, Trash2, ArrowLeft } from 'lucide-react';
 import { useCart } from '@/hooks/use-cart';
 import { formatPriceAEDUSD } from '@/lib/price-formatter';
 import { useNavigate } from 'react-router-dom';
 
-export function CartDrawer() {
+interface CartDrawerProps {
+  openOnLoad?: boolean;
+}
+
+export function CartDrawer({ openOnLoad = false }: CartDrawerProps) {
   const { cart, itemCount, updateQuantity, removeItem } = useCart();
   const navigate = useNavigate();
+  const [open, setOpen] = useState(openOnLoad);
+
+  useEffect(() => {
+    if (openOnLoad) {
+      setOpen(true);
+    }
+  }, [openOnLoad]);
 
   if (!cart) return null;
 
   return (
-    <Sheet>
+    <Sheet open={open} onOpenChange={setOpen}>
       <SheetTrigger asChild>
         <Button variant="outline" size="icon" className="relative">
           <ShoppingCart className="h-5 w-5" />
@@ -24,6 +36,14 @@ export function CartDrawer() {
         </Button>
       </SheetTrigger>
       <SheetContent className="w-full sm:max-w-lg">
+        <div className="flex items-center gap-2 mb-3">
+          <SheetClose asChild>
+            <Button variant="ghost" size="icon" aria-label="Back to snacks">
+              <ArrowLeft className="h-4 w-4" />
+            </Button>
+          </SheetClose>
+          <span className="text-sm text-muted-foreground font-medium">Back to Snacks</span>
+        </div>
         <SheetHeader>
           <SheetTitle>Your Cart ({itemCount} items)</SheetTitle>
         </SheetHeader>
@@ -101,7 +121,10 @@ export function CartDrawer() {
               <Button
                 className="w-full mt-4"
                 size="lg"
-                onClick={() => navigate('/checkout')}
+                onClick={() => {
+                  setOpen(false);
+                  navigate('/checkout');
+                }}
                 disabled={cart.items.length === 0}
               >
                 Checkout

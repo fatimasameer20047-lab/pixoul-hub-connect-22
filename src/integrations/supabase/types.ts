@@ -103,6 +103,9 @@ export type Database = {
           created_at: string | null
           fees: number
           id: string
+          inside_pixoul_confirmed: boolean
+          room_details: string | null
+          room_location: string | null
           session_id: string | null
           status: string
           subtotal: number
@@ -116,6 +119,9 @@ export type Database = {
           created_at?: string | null
           fees?: number
           id?: string
+          inside_pixoul_confirmed?: boolean
+          room_details?: string | null
+          room_location?: string | null
           session_id?: string | null
           status?: string
           subtotal?: number
@@ -129,6 +135,9 @@ export type Database = {
           created_at?: string | null
           fees?: number
           id?: string
+          inside_pixoul_confirmed?: boolean
+          room_details?: string | null
+          room_location?: string | null
           session_id?: string | null
           status?: string
           subtotal?: number
@@ -488,9 +497,12 @@ export type Database = {
           fees: number
           fulfillment: string
           id: string
+          inside_pixoul_confirmed: boolean
           notes: string | null
           payment_method: string
           payment_status: string
+          room_details: string | null
+          room_location: string | null
           status: string
           subtotal: number
           tax: number
@@ -506,9 +518,12 @@ export type Database = {
           fees: number
           fulfillment?: string
           id?: string
+          inside_pixoul_confirmed?: boolean
           notes?: string | null
           payment_method?: string
           payment_status?: string
+          room_details?: string | null
+          room_location?: string | null
           status?: string
           subtotal: number
           tax: number
@@ -524,9 +539,12 @@ export type Database = {
           fees?: number
           fulfillment?: string
           id?: string
+          inside_pixoul_confirmed?: boolean
           notes?: string | null
           payment_method?: string
           payment_status?: string
+          room_details?: string | null
+          room_location?: string | null
           status?: string
           subtotal?: number
           tax?: number
@@ -722,6 +740,7 @@ export type Database = {
       pixoul_posts: {
         Row: {
           author_id: string
+          channel: Database["public"]["Enums"]["post_channel"]
           caption: string
           created_at: string
           id: string
@@ -734,6 +753,7 @@ export type Database = {
         }
         Insert: {
           author_id: string
+          channel?: Database["public"]["Enums"]["post_channel"]
           caption: string
           created_at?: string
           id?: string
@@ -746,6 +766,7 @@ export type Database = {
         }
         Update: {
           author_id?: string
+          channel?: Database["public"]["Enums"]["post_channel"]
           caption?: string
           created_at?: string
           id?: string
@@ -1122,6 +1143,7 @@ export type Database = {
         | "snacks"
         | "gallery"
         | "guides"
+      post_channel: "from_pixoul" | "packages_offers"
       snack_category: "Food" | "Drinks" | "Sweets"
     }
     CompositeTypes: {

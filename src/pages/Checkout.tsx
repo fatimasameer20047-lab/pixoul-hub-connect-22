@@ -2,22 +2,40 @@ import { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
-import { Loader2 } from 'lucide-react';
+import { Loader2, ArrowLeft } from 'lucide-react';
 import { useCart } from '@/hooks/use-cart';
 import { useAuth } from '@/contexts/AuthContext';
 import { supabase } from '@/integrations/supabase/client';
 import { useToast } from '@/hooks/use-toast';
 import { formatPriceAEDUSD } from '@/lib/price-formatter';
 import { CheckoutDialog } from '@/components/payment/CheckoutDialog';
+import { Label } from '@/components/ui/label';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import { Input } from '@/components/ui/input';
+import { Checkbox } from '@/components/ui/checkbox';
+
+const ROOM_OPTIONS = [
+  'TR1',
+  'TR2',
+  'TR3',
+  'TR4',
+  'Social Gaming Room',
+  'VIP Lounge 1',
+  'VIP Lounge 2',
+  'Other',
+] as const;
 
 export default function Checkout() {
-  const { cart, clearCart } = useCart();
+  const { cart, clearCart, updateCartDetails } = useCart();
   const { user } = useAuth();
   const navigate = useNavigate();
   const { toast } = useToast();
   const [creating, setCreating] = useState(false);
   const [orderId, setOrderId] = useState<string | null>(null);
   const [showCheckout, setShowCheckout] = useState(false);
+  const [roomLocation, setRoomLocation] = useState<string>(cart?.room_location || '');
+  const [roomDetails, setRoomDetails] = useState<string>(cart?.room_details || '');
+  const [insidePixoul, setInsidePixoul] = useState<boolean>(Boolean(cart?.inside_pixoul_confirmed));
 
   useEffect(() => {
     if (!user) {
@@ -29,11 +47,79 @@ export default function Checkout() {
     }
   }, [user, cart, navigate]);
 
+  useEffect(() => {
+    if (cart) {
+      setRoomLocation(cart.room_location || '');
+      setRoomDetails(cart.room_details || '');
+      setInsidePixoul(Boolean(cart.inside_pixoul_confirmed));
+    }
+  }, [cart?.room_location, cart?.room_details, cart?.inside_pixoul_confirmed]);
+
+  const handleRoomChange = (value: string) => {
+    setRoomLocation(value);
+    if (value !== 'Other') {
+      setRoomDetails('');
+      updateCartDetails({ room_location: value, room_details: null });
+    } else {
+      updateCartDetails({ room_location: value });
+    }
+  };
+
+  const handleRoomDetailsChange = (value: string) => {
+    setRoomDetails(value);
+    if (roomLocation === 'Other') {
+      updateCartDetails({ room_details: value });
+    }
+  };
+
+  const handleInsidePixoulChange = (checked: boolean) => {
+    setInsidePixoul(checked);
+    updateCartDetails({ inside_pixoul_confirmed: checked });
+  };
+
+  const handleBackToCart = () => {
+    navigate('/snacks', { state: { openCart: true } });
+  };
+
   const createOrder = async () => {
     if (!cart || !user) return;
 
+    if (!roomLocation) {
+      toast({
+        title: 'Select your room',
+        description: 'Please let us know where you are inside Pixoul so we can deliver your snacks.',
+        variant: 'destructive',
+      });
+      return;
+    }
+
+    const trimmedDetails = roomLocation === 'Other' ? roomDetails.trim() : null;
+
+    if (roomLocation === 'Other' && !trimmedDetails) {
+      toast({
+        title: 'Describe your location',
+        description: 'Tell us where you are seated inside Pixoul.',
+        variant: 'destructive',
+      });
+      return;
+    }
+
+    if (!insidePixoul) {
+      toast({
+        title: 'Confirm you are inside Pixoul',
+        description: 'Orders are served on-site only. Please confirm you are currently inside the venue.',
+        variant: 'destructive',
+      });
+      return;
+    }
+
     try {
       setCreating(true);
+      await updateCartDetails({
+        room_location: roomLocation,
+        room_details: trimmedDetails,
+        inside_pixoul_confirmed: insidePixoul,
+      });
 
       // Create order
       const { data: order, error: orderError } = await supabase
@@ -49,7 +135,10 @@ export default function Checkout() {
           payment_status: 'unpaid',
           payment_method: 'card',
           fulfillment: 'pickup',
-          status: 'new'
+          status: 'new',
+          room_location: roomLocation,
+          room_details: trimmedDetails,
+          inside_pixoul_confirmed: insidePixoul,
         })
         .select()
         .single();
@@ -81,9 +170,53 @@ export default function Checkout() {
     <div className="container mx-auto px-4 py-8">
       <Card className="max-w-2xl mx-auto">
         <CardHeader>
-          <CardTitle>Checkout</CardTitle>
+          <div className="flex items-center gap-3">
+            <Button variant="ghost" size="icon" onClick={handleBackToCart} aria-label="Back to cart">
+              <ArrowLeft className="h-4 w-4" />
+            </Button>
+            <CardTitle>Checkout</CardTitle>
+          </div>
         </CardHeader>
         <CardContent className="space-y-6">
+          <div className="space-y-4">
+            <div className="space-y-2">
+              <Label htmlFor="room-location">Room / Location inside Pixoul</Label>
+              <Select value={roomLocation || undefined} onValueChange={handleRoomChange}>
+                <SelectTrigger id="room-location" aria-label="Room or location">
+                  <SelectValue placeholder="Choose your room or area" />
+                </SelectTrigger>
+                <SelectContent>
+                  {ROOM_OPTIONS.map((option) => (
+                    <SelectItem key={option} value={option}>
+                      {option}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+            {roomLocation === 'Other' && (
+              <div className="space-y-2">
+                <Label htmlFor="room-details">Describe your location inside Pixoul</Label>
+                <Input
+                  id="room-details"
+                  value={roomDetails}
+                  onChange={(event) => handleRoomDetailsChange(event.target.value)}
+                  placeholder="Example: Near the VR arena entrance"
+                />
+              </div>
+            )}
+            <div className="flex items-start gap-2">
+              <Checkbox
+                id="inside-pixoul"
+                checked={insidePixoul}
+                onCheckedChange={(checked) => handleInsidePixoulChange(Boolean(checked))}
+              />
+              <Label htmlFor="inside-pixoul" className="text-sm font-normal leading-snug">
+                I confirm I am currently inside Pixoul Gaming (in-venue service only, no external delivery).
+              </Label>
+            </div>
+          </div>
+
           <div className="space-y-4">
             {cart.items.map((item) => (
               <div key={item.id} className="flex justify-between items-center py-2 border-b">

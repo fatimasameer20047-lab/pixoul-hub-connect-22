@@ -23,6 +23,8 @@ import {
   SelectValue,
 } from '@/components/ui/select';
 
+type PixoulChannel = 'from_pixoul' | 'packages_offers';
+
 interface PixoulPost {
   id: string;
   author_id: string;
@@ -34,7 +36,15 @@ interface PixoulPost {
   caption: string;
   images: string[];
   pinned: boolean;
+  channel: PixoulChannel;
 }
+
+const PIXEL_STAFF_EMAIL = 'pixoulgaming@staffportal.com';
+
+const CHANNEL_LABELS: Record<PixoulChannel, string> = {
+  from_pixoul: 'From Pixoul',
+  packages_offers: 'Packages & Offers',
+};
 
 const StaffPixoulPosts = () => {
   const { user } = useAuth();
@@ -43,9 +53,14 @@ const StaffPixoulPosts = () => {
   const [isDialogOpen, setIsDialogOpen] = useState(false);
   const [editingPost, setEditingPost] = useState<PixoulPost | null>(null);
   const [uploading, setUploading] = useState(false);
+  const [channelFilter, setChannelFilter] = useState<'all' | PixoulChannel>('all');
+
+  const isPixoulStaff = user?.email === PIXEL_STAFF_EMAIL;
+  const isStaffPortalUser = user?.email?.endsWith('@staffportal.com');
 
   // Form state
   const [formData, setFormData] = useState({
+    channel: 'from_pixoul' as PixoulChannel,
     type: 'post' as PixoulPost['type'],
     title: '',
     caption: '',
@@ -55,10 +70,12 @@ const StaffPixoulPosts = () => {
   });
 
   useEffect(() => {
-    if (user?.email === 'pixoulgaming@staffportal.com') {
+    if (isStaffPortalUser) {
       fetchPosts();
+    } else {
+      setIsLoading(false);
     }
-  }, [user]);
+  }, [isStaffPortalUser]);
 
   const fetchPosts = async () => {
     try {
@@ -69,7 +86,11 @@ const StaffPixoulPosts = () => {
         .order('created_at', { ascending: false });
 
       if (error) throw error;
-      setPosts((data as PixoulPost[]) || []);
+      const normalized = ((data as (PixoulPost & { channel?: PixoulChannel })[]) || []).map(post => ({
+        ...post,
+        channel: post.channel ?? 'from_pixoul',
+      }));
+      setPosts(normalized);
     } catch (error) {
       console.error('Error fetching posts:', error);
       toast.error('Failed to load posts');
@@ -81,6 +102,10 @@ const StaffPixoulPosts = () => {
   const handleImageUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const files = e.target.files;
     if (!files || files.length === 0) return;
+    if (editingPost?.channel === 'packages_offers' && !isPixoulStaff) {
+      toast.error('Only Pixel Gaming can edit this post');
+      return;
+    }
 
     setUploading(true);
     const uploadedUrls: string[] = [];
@@ -134,9 +159,20 @@ const StaffPixoulPosts = () => {
       return;
     }
 
+    if (!isPixoulStaff && formData.channel === 'packages_offers') {
+      toast.error('Only Pixel Gaming can create Packages & Offers posts');
+      return;
+    }
+
+    if (editingPost?.channel === 'packages_offers' && !isPixoulStaff) {
+      toast.error('Only Pixel Gaming can edit this post');
+      return;
+    }
+
     try {
       if (editingPost) {
         const updateData: any = {
+          channel: formData.channel,
           type: formData.type,
           title: formData.title || null,
           caption: formData.caption,
@@ -158,6 +194,7 @@ const StaffPixoulPosts = () => {
       } else {
         const insertData: any = {
           author_id: user!.id,
+          channel: formData.channel,
           type: formData.type,
           title: formData.title || null,
           caption: formData.caption,
@@ -186,14 +223,19 @@ const StaffPixoulPosts = () => {
     }
   };
 
-  const handleDelete = async (id: string) => {
+  const handleDelete = async (post: PixoulPost) => {
+    if (post.channel === 'packages_offers' && !isPixoulStaff) {
+      toast.error('Only Pixel Gaming can delete Packages & Offers posts');
+      return;
+    }
+
     if (!confirm('Are you sure you want to delete this post?')) return;
 
     try {
       const { error } = await supabase
         .from('pixoul_posts')
         .delete()
-        .eq('id', id);
+        .eq('id', post.id);
 
       if (error) throw error;
       toast.success('Post deleted successfully');
@@ -205,6 +247,11 @@ const StaffPixoulPosts = () => {
   };
 
   const togglePin = async (post: PixoulPost) => {
+    if (post.channel === 'packages_offers' && !isPixoulStaff) {
+      toast.error('Only Pixel Gaming can pin Packages & Offers posts');
+      return;
+    }
+
     try {
       const newPinned = !post.pinned;
       
@@ -225,6 +272,7 @@ const StaffPixoulPosts = () => {
   const openEditDialog = (post: PixoulPost) => {
     setEditingPost(post);
     setFormData({
+      channel: post.channel,
       type: post.type,
       title: post.title || '',
       caption: post.caption,
@@ -238,6 +286,7 @@ const StaffPixoulPosts = () => {
   const resetForm = () => {
     setEditingPost(null);
     setFormData({
+      channel: 'from_pixoul',
       type: 'post',
       title: '',
       caption: '',
@@ -247,7 +296,26 @@ const StaffPixoulPosts = () => {
     });
   };
 
-  if (user?.email !== 'pixoulgaming@staffportal.com') {
+  const filteredPosts =
+    channelFilter === 'all'
+      ? posts
+      : posts.filter(post => post.channel === channelFilter);
+
+  const isPackagesEditLocked = Boolean(editingPost && editingPost.channel === 'packages_offers' && !isPixoulStaff);
+  const channelSelectOptions = isPixoulStaff
+    ? [
+        { value: 'from_pixoul' as PixoulChannel, label: CHANNEL_LABELS.from_pixoul },
+        { value: 'packages_offers' as PixoulChannel, label: CHANNEL_LABELS.packages_offers },
+      ]
+    : [{ value: 'from_pixoul' as PixoulChannel, label: CHANNEL_LABELS.from_pixoul }];
+  const shouldShowChannelSelect = isPixoulStaff || formData.channel === 'from_pixoul';
+  const channelFilters: { label: string; value: 'all' | PixoulChannel }[] = [
+    { label: 'All', value: 'all' },
+    { label: 'From Pixoul', value: 'from_pixoul' },
+    { label: 'Packages & Offers', value: 'packages_offers' },
+  ];
+
+  if (!isStaffPortalUser) {
     return (
       <div className="p-8">
         <p className="text-muted-foreground">Access denied. This page is only for Pixoul staff.</p>
@@ -258,8 +326,13 @@ const StaffPixoulPosts = () => {
   return (
     <div className="min-h-screen bg-background p-6">
       <div className="max-w-6xl mx-auto">
-        <div className="flex justify-between items-center mb-6">
-          <h1 className="text-3xl font-bold">Pixoul Posts</h1>
+        <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between mb-6">
+          <div>
+            <h1 className="text-3xl font-bold">Pixoul Posts</h1>
+            <p className="text-sm text-muted-foreground">
+              Manage From Pixoul updates and Pixel Gaming packages from one place.
+            </p>
+          </div>
           <Dialog open={isDialogOpen} onOpenChange={(open) => {
             setIsDialogOpen(open);
             if (!open) resetForm();
@@ -275,6 +348,49 @@ const StaffPixoulPosts = () => {
                 <DialogTitle>{editingPost ? 'Edit Post' : 'New Post'}</DialogTitle>
               </DialogHeader>
               <form onSubmit={handleSubmit} className="space-y-4">
+                {isPackagesEditLocked && (
+                  <div className="rounded-md border border-dashed border-yellow-500/40 bg-yellow-500/10 text-sm text-muted-foreground p-3">
+                    Only Pixel Gaming can edit this post.
+                  </div>
+                )}
+
+                <div>
+                  <label className="text-sm font-medium mb-2 block">Channel *</label>
+                  {shouldShowChannelSelect ? (
+                    <Select
+                      value={formData.channel}
+                      onValueChange={(value: PixoulChannel) =>
+                        setFormData(prev => ({ ...prev, channel: value }))
+                      }
+                      disabled={isPackagesEditLocked}
+                    >
+                      <SelectTrigger>
+                        <SelectValue />
+                      </SelectTrigger>
+                      <SelectContent>
+                        {channelSelectOptions.map(option => (
+                          <SelectItem
+                            key={option.value}
+                            value={option.value}
+                            disabled={!isPixoulStaff && option.value !== 'from_pixoul'}
+                          >
+                            {option.label}
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                  ) : (
+                    <div className="rounded-md border border-border/70 bg-muted/40 px-3 py-2 text-sm text-muted-foreground">
+                      {CHANNEL_LABELS[formData.channel]}
+                    </div>
+                  )}
+                  {!isPixoulStaff && (
+                    <p className="text-xs text-muted-foreground mt-1">
+                      Packages &amp; Offers can only be managed by Pixel Gaming.
+                    </p>
+                  )}
+                </div>
+
                 <div>
                   <label className="text-sm font-medium mb-2 block">Type</label>
                   <Select
@@ -282,6 +398,7 @@ const StaffPixoulPosts = () => {
                     onValueChange={(value: PixoulPost['type']) =>
                       setFormData(prev => ({ ...prev, type: value }))
                     }
+                    disabled={isPackagesEditLocked}
                   >
                     <SelectTrigger>
                       <SelectValue />
@@ -301,6 +418,7 @@ const StaffPixoulPosts = () => {
                     value={formData.title}
                     onChange={(e) => setFormData(prev => ({ ...prev, title: e.target.value }))}
                     placeholder="Enter title..."
+                    disabled={isPackagesEditLocked}
                   />
                 </div>
 
@@ -312,6 +430,7 @@ const StaffPixoulPosts = () => {
                     placeholder="What's on your mind?"
                     rows={4}
                     required
+                    disabled={isPackagesEditLocked}
                   />
                 </div>
 
@@ -330,7 +449,8 @@ const StaffPixoulPosts = () => {
                             <button
                               type="button"
                               onClick={() => removeImage(url)}
-                              className="absolute top-1 right-1 bg-destructive text-destructive-foreground rounded-full p-1 hover:bg-destructive/90"
+                              disabled={isPackagesEditLocked}
+                              className="absolute top-1 right-1 bg-destructive text-destructive-foreground rounded-full p-1 hover:bg-destructive/90 disabled:opacity-60 disabled:pointer-events-none"
                             >
                               <X className="h-3 w-3" />
                             </button>
@@ -341,7 +461,7 @@ const StaffPixoulPosts = () => {
                     <Button
                       type="button"
                       variant="outline"
-                      disabled={uploading}
+                      disabled={uploading || isPackagesEditLocked}
                       onClick={() => document.getElementById('image-upload')?.click()}
                     >
                       <Upload className="mr-2 h-4 w-4" />
@@ -354,6 +474,7 @@ const StaffPixoulPosts = () => {
                       multiple
                       onChange={handleImageUpload}
                       className="hidden"
+                      disabled={isPackagesEditLocked}
                     />
                   </div>
                 </div>
@@ -365,6 +486,7 @@ const StaffPixoulPosts = () => {
                     checked={formData.pinned}
                     onChange={(e) => setFormData(prev => ({ ...prev, pinned: e.target.checked }))}
                     className="h-4 w-4"
+                    disabled={isPackagesEditLocked}
                   />
                   <label htmlFor="pinned" className="text-sm font-medium">
                     Pin to top
@@ -378,6 +500,7 @@ const StaffPixoulPosts = () => {
                     checked={formData.published}
                     onChange={(e) => setFormData(prev => ({ ...prev, published: e.target.checked }))}
                     className="h-4 w-4"
+                    disabled={isPackagesEditLocked}
                   />
                   <label htmlFor="published" className="text-sm font-medium">
                     Published
@@ -385,15 +508,18 @@ const StaffPixoulPosts = () => {
                 </div>
 
                 <div className="flex gap-2">
-                  <Button type="submit" className="flex-1">
-                    {editingPost ? 'Update' : 'Create'} Post
-                  </Button>
+                  {!isPackagesEditLocked && (
+                    <Button type="submit" className="flex-1">
+                      {editingPost ? 'Update' : 'Create'} Post
+                    </Button>
+                  )}
                   <Button
                     type="button"
                     variant="outline"
                     onClick={() => setIsDialogOpen(false)}
+                    className={isPackagesEditLocked ? 'flex-1' : undefined}
                   >
-                    Cancel
+                    {isPackagesEditLocked ? 'Close' : 'Cancel'}
                   </Button>
                 </div>
               </form>
@@ -401,20 +527,42 @@ const StaffPixoulPosts = () => {
           </Dialog>
         </div>
 
+        <div className="flex flex-wrap gap-2 mb-6">
+          {channelFilters.map(option => (
+            <Button
+              key={option.value}
+              size="sm"
+              variant={channelFilter === option.value ? 'default' : 'outline'}
+              onClick={() => setChannelFilter(option.value)}
+            >
+              {option.label}
+            </Button>
+          ))}
+        </div>
+
         <div className="space-y-4">
           {isLoading ? (
             <p className="text-muted-foreground">Loading posts...</p>
-          ) : posts.length === 0 ? (
-            <p className="text-muted-foreground">No posts yet. Create your first post!</p>
+          ) : filteredPosts.length === 0 ? (
+            <p className="text-muted-foreground">
+              {posts.length === 0
+                ? 'No posts yet. Create your first post!'
+                : 'No posts for this channel just yet.'}
+            </p>
           ) : (
-            posts.map((post) => (
-              <Card key={post.id} className="p-4">
-                <div className="flex justify-between items-start mb-2">
+            filteredPosts.map((post) => {
+              const packageLocked = post.channel === 'packages_offers' && !isPixoulStaff;
+              return (
+                <Card key={post.id} className="p-4">
+                  <div className="flex justify-between items-start mb-2">
                   <div className="flex gap-2">
                     <Badge variant={post.published ? 'default' : 'secondary'}>
                       {post.published ? 'Published' : 'Draft'}
                     </Badge>
                     <Badge variant="outline">{post.type}</Badge>
+                    <Badge variant={post.channel === 'packages_offers' ? 'default' : 'outline'}>
+                      {CHANNEL_LABELS[post.channel]}
+                    </Badge>
                     {post.pinned && <Badge variant="destructive">Pinned</Badge>}
                   </div>
                   <div className="flex gap-2">
@@ -422,6 +570,7 @@ const StaffPixoulPosts = () => {
                       size="sm"
                       variant="outline"
                       onClick={() => togglePin(post)}
+                      disabled={packageLocked}
                     >
                       {post.pinned ? 'Unpin' : 'Pin'}
                     </Button>
@@ -435,31 +584,38 @@ const StaffPixoulPosts = () => {
                     <Button
                       size="sm"
                       variant="ghost"
-                      onClick={() => handleDelete(post.id)}
+                      onClick={() => handleDelete(post)}
+                      disabled={packageLocked}
                     >
                       <Trash2 className="h-4 w-4" />
                     </Button>
                   </div>
                 </div>
-                {post.title && <h3 className="font-semibold mb-1">{post.title}</h3>}
-                <p className="text-sm mb-2 whitespace-pre-wrap">{post.caption}</p>
-                {post.images && post.images.length > 0 && (
-                  <div className="grid grid-cols-4 gap-2 mt-2">
-                    {post.images.map((url, index) => (
-                      <img
-                        key={index}
-                        src={url}
-                        alt={`Media ${index + 1}`}
-                        className="w-full h-24 object-cover rounded"
-                      />
-                    ))}
-                  </div>
-                )}
-                <p className="text-xs text-muted-foreground mt-2">
-                  {new Date(post.created_at).toLocaleString()}
-                </p>
-              </Card>
-            ))
+                  {post.title && <h3 className="font-semibold mb-1">{post.title}</h3>}
+                  <p className="text-sm mb-2 whitespace-pre-wrap">{post.caption}</p>
+                  {post.images && post.images.length > 0 && (
+                    <div className="grid grid-cols-4 gap-2 mt-2">
+                      {post.images.map((url, index) => (
+                        <img
+                          key={index}
+                          src={url}
+                          alt={`Media ${index + 1}`}
+                          className="w-full h-24 object-cover rounded"
+                        />
+                      ))}
+                    </div>
+                  )}
+                  <p className="text-xs text-muted-foreground mt-2">
+                    {new Date(post.created_at).toLocaleString()}
+                  </p>
+                  {packageLocked && (
+                    <p className="text-xs text-muted-foreground mt-1">
+                      Packages &amp; Offers can only be updated by Pixel Gaming.
+                    </p>
+                  )}
+                </Card>
+              );
+            })
           )}
         </div>
       </div>

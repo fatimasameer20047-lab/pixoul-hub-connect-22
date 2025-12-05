@@ -175,7 +175,8 @@ export function ChatDialog({ isOpen, onClose, conversationType, referenceId, tit
 
   return (
     <Dialog open={isOpen} onOpenChange={onClose}>
-      <DialogContent className="max-w-md h-[600px] flex flex-col">
+      {/* MOBILE: Taller dialog, comfortable for chat */}
+      <DialogContent className="w-full max-w-lg h-[80vh] flex flex-col">
         <DialogHeader>
           <DialogTitle className="flex items-center justify-between">
             <span className="truncate">{title}</span>
@@ -194,7 +195,8 @@ export function ChatDialog({ isOpen, onClose, conversationType, referenceId, tit
                   className={`flex ${message.sender_id === user?.id ? 'justify-end' : 'justify-start'}`}
                 >
                   <div
-                    className={`max-w-[80%] rounded-lg px-3 py-2 ${
+                    // MOBILE: Larger, more readable bubbles
+                    className={`max-w-[85%] rounded-lg px-3 py-2 text-[0.95rem] ${
                       message.sender_id === user?.id
                         ? 'bg-primary text-primary-foreground'
                         : 'bg-muted'
@@ -209,6 +211,7 @@ export function ChatDialog({ isOpen, onClose, conversationType, referenceId, tit
                       )}
                     </div>
                     <p className="text-sm">{message.message}</p>
+                    {/* MOBILE: Timestamp stays readable and compact */}
                     <p className="text-xs opacity-70 mt-1">
                       {format(new Date(message.created_at), 'MMM dd, HH:mm')}
                     </p>
@@ -224,14 +227,15 @@ export function ChatDialog({ isOpen, onClose, conversationType, referenceId, tit
             </div>
           </ScrollArea>
 
-          <form onSubmit={sendMessage} className="flex gap-2 pt-4 border-t">
+          {/* MOBILE: Composer fixed to bottom with safe area padding */}
+          <form onSubmit={sendMessage} className="flex gap-2 pt-3 border-t sticky bottom-0 bg-card/95 backdrop-blur px-1 pb-[calc(env(safe-area-inset-bottom)+0.5rem)]">
             <Input
               value={newMessage}
               onChange={(e) => setNewMessage(e.target.value)}
               placeholder="Type your message..."
               disabled={sending}
             />
-            <Button type="submit" size="sm" disabled={!newMessage.trim() || sending}>
+            <Button type="submit" size="default" className="px-4" disabled={!newMessage.trim() || sending}>
               <Send className="h-4 w-4" />
             </Button>
           </form>

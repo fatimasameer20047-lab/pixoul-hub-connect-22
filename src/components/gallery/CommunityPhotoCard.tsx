@@ -7,6 +7,7 @@ import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/contexts/AuthContext';
 import { toast } from 'sonner';
 import { UserAvatar } from './UserAvatar';
+import { getThumbFromFeedUrl } from '@/lib/image-utils';
 
 interface Photo {
   id: string;
@@ -140,21 +141,24 @@ export default function CommunityPhotoCard({
           />
           <div className="flex-1">
             <p className="text-sm font-medium">{photo.author_name || 'Unknown User'}</p>
+            {/* MOBILE: Show username/handle instead of date under the name */}
             <p className="text-xs text-muted-foreground">
-              {new Date(photo.created_at).toLocaleDateString()}
+              @{photo.user_id ? `user${photo.user_id.slice(-4)}` : 'user'}
             </p>
           </div>
         </div>
 
         {/* Image */}
         <div 
-          className="aspect-square bg-muted overflow-hidden cursor-pointer"
+          className="bg-muted overflow-hidden cursor-pointer rounded-xl"
           onClick={onPhotoClick}
         >
           <img 
-            src={photo.url} 
+            src={getThumbFromFeedUrl(photo.url)} 
             alt={photo.caption || "Gallery photo"} 
-            className="w-full h-full object-cover hover:scale-105 transition-transform duration-200"
+            className="w-full h-auto hover:scale-[1.01] transition-transform duration-200"
+            loading="lazy"
+            decoding="async"
           />
         </div>
 
@@ -209,11 +213,13 @@ export default function CommunityPhotoCard({
                       <div className="flex-1 min-w-0">
                         <div className="flex items-center gap-2 mb-1">
                           <span className="text-xs font-medium">{comment.commenter_name}</span>
-                          <span className="text-xs text-muted-foreground">
-                            {new Date(comment.created_at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
-                          </span>
+                          {/* MOBILE: Keep comment header clean; timestamp moves beneath */}
                         </div>
                         <p className="text-sm break-words">{comment.text}</p>
+                        {/* MOBILE: Timestamp under the comment text for clarity */}
+                        <p className="text-[11px] text-muted-foreground mt-1">
+                          {new Date(comment.created_at).toLocaleString([], { hour: '2-digit', minute: '2-digit', day: '2-digit', month: 'short' })}
+                        </p>
                       </div>
                     </div>
                   ))

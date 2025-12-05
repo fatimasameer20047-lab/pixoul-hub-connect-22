@@ -121,12 +121,14 @@ export function AddRoomDialog({ open, onOpenChange, onSuccess }: AddRoomDialogPr
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
+      {/* MOBILE: Constrain dialog width and add comfortable scrolling */}
+      <DialogContent className="w-[95vw] sm:max-w-2xl max-h-[90vh] overflow-y-auto">
         <DialogHeader>
           <DialogTitle>Add New Room</DialogTitle>
         </DialogHeader>
         <form onSubmit={handleSubmit} className="space-y-4">
-          <div className="grid grid-cols-2 gap-4">
+          {/* MOBILE: Single column form on small screens */}
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
             <div className="space-y-2">
               <Label htmlFor="name">Room Name</Label>
               <Input
@@ -223,7 +225,7 @@ export function AddRoomDialog({ open, onOpenChange, onSuccess }: AddRoomDialogPr
             {selectedFiles.length > 0 && (
               <div className="space-y-2">
                 <p className="text-sm font-medium">Selected: {selectedFiles.length} photos</p>
-                <div className="grid grid-cols-2 gap-2">
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
                   {selectedFiles.map((file, index) => (
                     <div key={index} className="relative border rounded p-2 flex items-center gap-2">
                       <span className="text-sm truncate flex-1">{file.name}</span>
@@ -242,7 +244,7 @@ export function AddRoomDialog({ open, onOpenChange, onSuccess }: AddRoomDialogPr
             )}
           </div>
 
-          <div className="flex justify-end gap-2">
+          <div className="flex flex-col sm:flex-row justify-end gap-2">
             <Button
               type="button"
               variant="outline"
@@ -251,7 +253,7 @@ export function AddRoomDialog({ open, onOpenChange, onSuccess }: AddRoomDialogPr
             >
               Cancel
             </Button>
-            <Button type="submit" disabled={isSubmitting}>
+            <Button type="submit" disabled={isSubmitting} className="sm:min-w-[10rem]">
               {isSubmitting ? 'Creating...' : 'Create Room'}
             </Button>
           </div>

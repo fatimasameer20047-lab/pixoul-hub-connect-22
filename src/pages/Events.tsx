@@ -161,7 +161,7 @@ export default function Events() {
   }
 
   return (
-    <div className="container mx-auto px-4 py-8">
+    <div className="container mx-auto px-4 py-6 overflow-x-hidden">
       <div className="mb-8">
         <div className="flex items-center justify-between">
           <div>
@@ -184,20 +184,21 @@ export default function Events() {
         <TabsContent value="catalog" className="space-y-6">
           {/* Filters */}
           <Card>
-            <CardContent className="pt-6">
-              <div className="grid grid-cols-1 md:grid-cols-5 gap-4">
+            {/* MOBILE: Compact filters so the list dominates */}
+            <CardContent className="pt-3 pb-3">
+              <div className="grid grid-cols-1 md:grid-cols-5 gap-3">
                 <div className="relative">
                   <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-muted-foreground" />
                   <Input
                     placeholder="Search events..."
                     value={searchTerm}
                     onChange={(e) => setSearchTerm(e.target.value)}
-                    className="pl-10"
+                    className="pl-10 h-9"
                   />
                 </div>
 
                 <Select value={typeFilter} onValueChange={setTypeFilter}>
-                  <SelectTrigger>
+                  <SelectTrigger className="h-9">
                     <SelectValue />
                   </SelectTrigger>
                   <SelectContent>
@@ -208,7 +209,7 @@ export default function Events() {
                 </Select>
 
                 <Select value={categoryFilter} onValueChange={setCategoryFilter}>
-                  <SelectTrigger>
+                  <SelectTrigger className="h-9">
                     <SelectValue />
                   </SelectTrigger>
                   <SelectContent>
@@ -222,7 +223,7 @@ export default function Events() {
                 </Select>
 
                 <Select value={dateFilter} onValueChange={setDateFilter}>
-                  <SelectTrigger>
+                  <SelectTrigger className="h-9">
                     <SelectValue />
                   </SelectTrigger>
                   <SelectContent>
@@ -234,6 +235,7 @@ export default function Events() {
 
                 <Button
                   variant="outline"
+                  className="h-9 text-sm"
                   onClick={() => {
                     setSearchTerm('');
                     setTypeFilter('all');
@@ -248,8 +250,8 @@ export default function Events() {
             </CardContent>
           </Card>
 
-          {/* Events Grid */}
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+          {/* MOBILE: 2-column grid, square thumbnails, compact */}
+          <div className="grid grid-cols-2 gap-4 md:hidden">
             {filteredEvents.map((event) => (
               <Card 
                 key={event.id} 
@@ -258,7 +260,75 @@ export default function Events() {
               >
                 {event.image_url && (
                   <div 
-                    className="w-full h-48 overflow-hidden"
+                    className="w-full overflow-hidden rounded-b-none rounded-t-xl aspect-square"
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      setViewerImages([event.image_url!]);
+                      setShowViewer(true);
+                    }}
+                  >
+                    <img
+                      src={event.image_url}
+                      alt={event.title}
+                      className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300 cursor-pointer"
+                    />
+                  </div>
+                )}
+                <CardHeader className="py-3">
+                  <div className="flex items-start justify-between">
+                    <CardTitle className="line-clamp-1 text-base" title={event.title}>{event.title}</CardTitle>
+                    <div className="flex flex-col gap-2">
+                      <Badge variant={event.type === 'event' ? 'default' : 'secondary'} className="text-[11px]">
+                        {event.type}
+                      </Badge>
+                    </div>
+                  </div>
+                  {event.category && (
+                    <Badge variant="outline" className="w-fit text-[11px]">
+                      {event.category}
+                    </Badge>
+                  )}
+                </CardHeader>
+                <CardContent className="space-y-3">
+                  <div className="space-y-1.5 text-xs">
+                    <div className="flex items-center gap-2">
+                      <Calendar className="h-4 w-4" />
+                      {format(parseISO(event.event_date), 'MMM dd, yyyy')}
+                    </div>
+                    <div className="flex items-center gap-2">
+                      <Clock className="h-4 w-4" />
+                      {event.start_time}
+                      {event.duration_minutes && ` (${event.duration_minutes}min)`}
+                    </div>
+                  </div>
+                  <Button 
+                    className="w-full h-9 text-sm" 
+                    variant={isEventPast(event) || isEventFull(event) ? "outline" : "default"}
+                    disabled={isEventPast(event) || isEventFull(event)}
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      setSelectedEvent(event);
+                    }}
+                  >
+                    {isEventPast(event) ? 'Past Event' : 
+                     isEventFull(event) ? 'Event Full' : 'View Details'}
+                  </Button>
+                </CardContent>
+              </Card>
+            ))}
+          </div>
+
+          {/* Desktop grid */}
+          <div className="hidden md:grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+            {filteredEvents.map((event) => (
+              <Card 
+                key={event.id} 
+                className="group hover:shadow-lg hover:shadow-primary/20 transition-all duration-300 cursor-pointer overflow-hidden"
+                onClick={() => setSelectedEvent(event)}
+              >
+                {event.image_url && (
+                  <div 
+                    className="w-full overflow-hidden rounded-b-none rounded-t-xl md:rounded-t-xl aspect-video"
                     onClick={(e) => {
                       e.stopPropagation();
                       setViewerImages([event.image_url!]);
@@ -327,9 +397,10 @@ export default function Events() {
                     )}
                   </div>
 
-                  <div className="flex gap-2">
+                  {/* MOBILE: Full-width button stack */}
+                  <div className="flex flex-col sm:flex-row gap-2">
                     <Button 
-                      className="flex-1" 
+                      className="flex-1 w-full" 
                       variant={isEventPast(event) || isEventFull(event) ? "outline" : "default"}
                       disabled={isEventPast(event) || isEventFull(event)}
                       onClick={(e) => {

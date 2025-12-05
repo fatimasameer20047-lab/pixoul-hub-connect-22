@@ -10,7 +10,7 @@ interface Photo {
   id: string;
   url: string;
   caption: string;
-  visibility: 'private' | 'public';
+  visibility: 'private' | 'pending' | 'public';
   created_at: string;
   user_id: string;
   author_name?: string;
@@ -56,15 +56,17 @@ export default function PhotoCard({
   return (
     <Card className="overflow-hidden group hover:shadow-md transition-shadow">
       <CardContent className="p-0">
-        {/* Image */}
+        {/* Image uses natural aspect; width-fitted */}
         <div 
-          className="aspect-square bg-muted overflow-hidden cursor-pointer"
+          className={`w-full bg-muted overflow-hidden cursor-pointer`}
           onClick={onPhotoClick}
         >
           <img 
             src={photo.url} 
             alt={photo.caption || "Gallery photo"} 
-            className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-200"
+            className="w-full h-auto group-hover:scale-[1.01] transition-transform duration-200"
+            loading="lazy"
+            decoding="async"
           />
         </div>
 
@@ -116,16 +118,24 @@ export default function PhotoCard({
 
             <div className="flex items-center gap-2">
               {/* Visibility badge */}
-              <Badge variant={photo.visibility === 'private' ? 'secondary' : 'default'} className="text-xs">
-                {photo.visibility === 'private' ? (
-                  <><EyeOff className="h-3 w-3 mr-1" /> Private</>
-                ) : (
-                  <><Eye className="h-3 w-3 mr-1" /> Public</>
-                )}
-              </Badge>
+              {photo.visibility === 'public' && (
+                <Badge variant="default" className="text-xs">
+                  <Eye className="h-3 w-3 mr-1" /> Public
+                </Badge>
+              )}
+              {photo.visibility === 'private' && (
+                <Badge variant="secondary" className="text-xs">
+                  <EyeOff className="h-3 w-3 mr-1" /> Private
+                </Badge>
+              )}
+              {photo.visibility === 'pending' && (
+                <Badge variant="secondary" className="text-xs">
+                  <Eye className="h-3 w-3 mr-1" /> Pending approval
+                </Badge>
+              )}
 
               {/* Owner actions */}
-              {isOwner && (onDelete || onEdit) && (
+              {isOwner && (onDelete || onEdit || onChangeVisibility) && (
                 <DropdownMenu>
                   <DropdownMenuTrigger asChild>
                     <Button variant="ghost" size="sm" className="h-8 w-8 p-0">
@@ -139,19 +149,22 @@ export default function PhotoCard({
                         Edit Caption
                       </DropdownMenuItem>
                     )}
-                    {onChangeVisibility && (
-                      <DropdownMenuItem onClick={() => onChangeVisibility(photo.id, photo.visibility === 'private' ? 'public' : 'private')}>
-                        {photo.visibility === 'private' ? (
-                          <>
-                            <Globe className="h-4 w-4 mr-2" />
-                            Make Public
-                          </>
-                        ) : (
-                          <>
-                            <Lock className="h-4 w-4 mr-2" />
-                            Make Private
-                          </>
-                        )}
+                    {onChangeVisibility && photo.visibility === 'private' && (
+                      <DropdownMenuItem onClick={() => onChangeVisibility(photo.id, 'public')}>
+                        <Globe className="h-4 w-4 mr-2" />
+                        Submit for Approval
+                      </DropdownMenuItem>
+                    )}
+                    {photo.visibility === 'pending' && (
+                      <DropdownMenuItem disabled>
+                        <Globe className="h-4 w-4 mr-2" />
+                        Awaiting staff review
+                      </DropdownMenuItem>
+                    )}
+                    {onChangeVisibility && photo.visibility === 'public' && (
+                      <DropdownMenuItem onClick={() => onChangeVisibility(photo.id, 'private')}>
+                        <Lock className="h-4 w-4 mr-2" />
+                        Make Private
                       </DropdownMenuItem>
                     )}
                     {onDelete && (

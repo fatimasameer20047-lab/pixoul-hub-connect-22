@@ -43,6 +43,7 @@ export function CommunityFeed() {
   const [newComment, setNewComment] = useState<Record<string, string>>({});
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [commentsModalPhotoId, setCommentsModalPhotoId] = useState<string | null>(null);
+  const [expandedCaption, setExpandedCaption] = useState<Record<string, boolean>>({});
 
   useEffect(() => {
     fetchPhotos();
@@ -349,16 +350,16 @@ export function CommunityFeed() {
   }
 
   return (
-    <div className="w-full px-4 py-8 lg:px-8">
+    <div className="w-full max-w-[100vw] px-4 py-6 lg:px-8 space-y-5 overflow-x-hidden">
       <Tabs value={sortBy} onValueChange={(v) => setSortBy(v as 'newest' | 'popular')} className="space-y-6">
-        <TabsList className="grid w-full max-w-[700px] grid-cols-2">
+        <TabsList className="grid w-full max-w-full md:max-w-[700px] grid-cols-2">
           <TabsTrigger value="newest">Newest</TabsTrigger>
           <TabsTrigger value="popular">Most Popular</TabsTrigger>
         </TabsList>
-
-        <TabsContent value={sortBy} className="space-y-4 mt-6 max-w-[700px]">
+        
+        <TabsContent value={sortBy} className="space-y-9 mt-6 max-w-full md:max-w-[700px]">
           {photos.length === 0 ? (
-            <Card className="max-w-[700px]">
+            <Card className="max-w-full md:max-w-[700px]">
               <CardContent className="p-12 text-center">
                 <Camera className="h-16 w-16 mx-auto text-muted-foreground mb-4" />
                 <h3 className="text-lg font-semibold mb-2">No posts yet</h3>
@@ -367,7 +368,7 @@ export function CommunityFeed() {
             </Card>
           ) : (
             photos.map((photo) => (
-              <Card key={photo.id} className="overflow-hidden">
+              <Card key={photo.id} className="overflow-hidden w-full">
                 <CardContent className="p-0">
                   {/* Header */}
                   <div className="p-3 flex items-center gap-3">
@@ -378,42 +379,36 @@ export function CommunityFeed() {
                     />
                     <div className="flex-1">
                       <p className="text-sm font-semibold">{photo.author_name}</p>
-                      <p className="text-xs text-muted-foreground">
-                        {new Date(photo.created_at).toLocaleDateString('en-US', {
-                          month: 'short',
-                          day: 'numeric',
-                          hour: '2-digit',
-                          minute: '2-digit'
-                        })}
-                      </p>
+                      {/* MOBILE: Show @username under name; timestamp moved below */}
+                      <p className="text-xs text-muted-foreground">@{photo.user_id ? `user${photo.user_id.slice(-4)}` : 'user'}</p>
                     </div>
                   </div>
 
-                  {/* Image (if present) */}
+                  {/* Image first, fits card and stays within rounded corners */}
                   {photo.url && (
-                    <div className="w-full bg-muted" style={{ maxHeight: '70vh' }}>
+                    <div className="w-full bg-muted overflow-hidden rounded-xl">
                       <img 
                         src={photo.url} 
                         alt={photo.caption || "Community photo"} 
-                        className="w-full h-full object-cover"
-                        style={{ maxHeight: '70vh' }}
+                        className="w-full h-auto"
+                        loading="lazy"
+                        decoding="async"
                       />
                     </div>
                   )}
 
-                  {/* Actions & Content */}
+                  {/* Actions & Content (Instagram-style order) */}
                   <div className="p-3 space-y-2">
-                    {/* Like & Comment buttons */}
-                    <div className="flex items-center gap-3">
+                    {/* Action row with counts */}
+                    <div className="flex items-center gap-4">
                       <Button
                         variant="ghost"
                         size="sm"
                         className="h-auto p-0 hover:bg-transparent"
                         onClick={() => handleLike(photo.id)}
                       >
-                        <Heart 
-                          className={`h-5 w-5 ${photo.user_has_liked ? 'fill-red-500 text-red-500' : 'text-foreground'}`} 
-                        />
+                        <Heart className={`h-5 w-5 ${photo.user_has_liked ? 'fill-red-500 text-red-500' : 'text-foreground'}`} />
+                        <span className="ml-1 text-sm">{photo.like_count}</span>
                       </Button>
                       <Button
                         variant="ghost"
@@ -422,32 +417,26 @@ export function CommunityFeed() {
                         onClick={() => handleToggleComments(photo.id)}
                       >
                         <MessageCircle className="h-5 w-5" />
+                        <span className="ml-1 text-sm">{photo.comment_count}</span>
                       </Button>
                     </div>
 
-                    {/* Like count */}
-                    {photo.like_count > 0 && (
-                      <p className="text-sm font-semibold">
-                        {photo.like_count} {photo.like_count === 1 ? 'like' : 'likes'}
-                      </p>
-                    )}
-
-                    {/* Caption */}
+                    {/* Username + caption inline */}
                     {photo.caption && (
-                      <p className="text-sm">
+                      <p className="text-[0.95rem] leading-snug">
                         <span className="font-semibold mr-2">{photo.author_name}</span>
-                        {photo.caption}
+                        <span className={expandedCaption[photo.id] ? '' : 'line-clamp-2'}>
+                          {photo.caption}
+                        </span>
+                        {photo.caption.length > 120 && !expandedCaption[photo.id] && (
+                          <button
+                            className="ml-1 text-sm text-muted-foreground hover:text-foreground"
+                            onClick={() => setExpandedCaption(prev => ({ ...prev, [photo.id]: true }))}
+                          >
+                            more…
+                          </button>
+                        )}
                       </p>
-                    )}
-
-                    {/* View comments link */}
-                    {photo.comment_count > 0 && !expandedComments.has(photo.id) && (
-                      <button
-                        onClick={() => setCommentsModalPhotoId(photo.id)}
-                        className="text-sm text-muted-foreground hover:text-foreground"
-                      >
-                        View all {photo.comment_count} {photo.comment_count === 1 ? 'comment' : 'comments'}
-                      </button>
                     )}
 
                     {/* Comments section */}
@@ -508,8 +497,29 @@ export function CommunityFeed() {
                         </div>
                       </div>
                     )}
+
+                    {/* View comments link */}
+                    {photo.comment_count > 0 && !expandedComments.has(photo.id) && (
+                      <button
+                        onClick={() => setCommentsModalPhotoId(photo.id)}
+                        className="text-sm text-muted-foreground hover:text-foreground"
+                      >
+                        View all {photo.comment_count} {photo.comment_count === 1 ? 'comment' : 'comments'}
+                      </button>
+                    )}
                   </div>
                 </CardContent>
+                {/* MOBILE: Single timestamp after comments area */}
+                <div className="px-3 pb-3">
+                  <p className="text-xs text-muted-foreground">
+                    {new Date(photo.created_at).toLocaleDateString('en-US', {
+                      month: 'short',
+                      day: 'numeric',
+                      hour: '2-digit',
+                      minute: '2-digit'
+                    })}
+                  </p>
+                </div>
               </Card>
             ))
           )}

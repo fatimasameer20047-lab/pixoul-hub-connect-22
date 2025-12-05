@@ -217,17 +217,18 @@ export function RoomBookingForm({ room, onBack }: RoomBookingFormProps) {
   };
 
   return (
-    <div className="container mx-auto px-4 py-8">
+    <div className="container mx-auto px-4 py-6">
       <Button 
         variant="ghost" 
         onClick={onBack}
-        className="mb-6"
+        className="mb-4"
       >
         <ArrowLeft className="h-4 w-4 mr-2" />
         Back to Rooms
       </Button>
 
-      <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
+      {/* MOBILE: Comfortable 1-col form layout */}
+      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
         <div className="lg:col-span-2">
           <Card>
             <CardHeader>

@@ -9,9 +9,11 @@ import { StaffProvider, useStaff } from "@/contexts/StaffContext";
 import { CartProvider } from "@/hooks/use-cart";
 import { AppSidebar } from "@/components/AppSidebar";
 import { StaffSidebar } from "@/components/StaffSidebar";
-import { SupportButton } from "@/components/SupportButton";
 import { Badge } from "@/components/ui/badge";
 import { Loader } from "lucide-react";
+import { NotificationBell } from "@/components/notifications/NotificationBell";
+import { MobileBottomNav } from "@/components/MobileBottomNav";
+import pixoulLogo from "@/Pixoul-logo-1.png";
 import Index from "./pages/Index";
 import Auth from "./pages/Auth";
 import Booking from "./pages/Booking";
@@ -118,24 +120,42 @@ const AppLayout = ({ children }: { children: React.ReactNode }) => {
   
   return (
     <SidebarProvider>
-      <div className="min-h-screen flex w-full bg-background">
+      <div className="min-h-screen w-[100svw] max-w-[100svw] bg-background overflow-x-clip mx-auto">
+        <div className="flex w-full">
         <AppSidebar />
         <div className="flex-1 flex flex-col">
-          <header className="h-12 flex items-center justify-between border-b border-border/50 bg-card/50 backdrop-blur-sm px-4">
-            <SidebarTrigger />
+          {/* FIXED: Keep entire top app bar visible on scroll (guest pages) */}
+          <header className="fixed top-0 inset-x-0 z-50 w-[100svw] max-w-[100svw] bg-background">
+            <div className="mx-auto w-full max-w-screen-lg px-4">
+              <div className="h-12 flex items-center justify-between border-b border-border/50">
+                <SidebarTrigger />
+            {/* Pixoul logo centered in the header without affecting layout */}
+            <div className="absolute left-1/2 -translate-x-1/2 pointer-events-none select-none">
+              <img
+                src={pixoulLogo}
+                onError={(e) => { (e.currentTarget as HTMLImageElement).src = '/placeholder.svg'; }}
+                alt="Pixoul"
+                className="h-6 md:h-7 object-contain opacity-90"
+              />
+            </div>
             <div className="flex items-center gap-2">
               {isDemoMode && (
                 <Badge variant="outline" className="text-xs">
                   Demo Mode
                 </Badge>
               )}
-              <Badge variant="secondary" className="text-xs">
-                {isDemoMode ? 'Guest Mode' : user?.email || 'User'}
-              </Badge>
+              {/* MOBILE: Bell with badge visible on all dashboards */}
+              <NotificationBell />
+            </div>
+              </div>
             </div>
           </header>
-          <main className="flex-1">{children}</main>
-          <SupportButton />
+          {/* MOBILE: Add bottom padding so content isn't hidden by bottom nav */}
+          {/* Add top padding to offset fixed header height (h-12) */}
+          <main className="flex-1 pt-12 pb-24 md:pb-0 overflow-x-hidden">{children}</main>
+          {/* MOBILE: Bottom navigation */}
+          <MobileBottomNav />
+        </div>
         </div>
       </div>
     </SidebarProvider>
@@ -151,18 +171,28 @@ const StaffLayout = ({ children }: { children: React.ReactNode }) => {
       <div className="min-h-screen flex w-full bg-background">
         <StaffSidebar />
         <div className="flex-1 flex flex-col">
-          <header className="h-12 flex items-center justify-between border-b border-border/50 bg-card/50 backdrop-blur-sm px-4">
+          {/* FIXED: Keep entire top app bar visible on scroll (staff pages) */}
+          <header className="fixed top-0 inset-x-0 z-50 h-12 flex items-center justify-between border-b border-border/50 bg-card/80 backdrop-blur-sm vw-safe mx-auto px-4 md:px-5 lg:px-6 supports-[backdrop-filter]:bg-card/70 relative">
             <SidebarTrigger />
+            {/* Pixoul logo centered in the header without affecting layout */}
+            <div className="absolute left-1/2 -translate-x-1/2 pointer-events-none select-none">
+              <img
+                src={pixoulLogo}
+                onError={(e) => { (e.currentTarget as HTMLImageElement).src = '/placeholder.svg'; }}
+                alt="Pixoul"
+                className="h-6 md:h-7 object-contain opacity-90"
+              />
+            </div>
             <div className="flex items-center gap-2">
               <Badge variant="default" className="text-xs">
                 Staff Portal
               </Badge>
-              <Badge variant="secondary" className="text-xs">
-                {user?.email || 'Staff'}
-              </Badge>
+              {/* MOBILE: Bell with badge visible on staff dashboard too */}
+              <NotificationBell />
             </div>
           </header>
-          <main className="flex-1">{children}</main>
+          {/* Add top padding to offset fixed header height (h-12) */}
+          <main className="flex-1 pt-12 pb-24 md:pb-0">{children}</main>
         </div>
       </div>
     </SidebarProvider>
@@ -369,3 +399,4 @@ const App = () => (
 );
 
 export default App;
+

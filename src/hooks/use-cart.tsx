@@ -22,6 +22,9 @@ interface Cart {
   tip: number;
   total: number;
   items: CartItem[];
+  room_location: string | null;
+  room_details: string | null;
+  inside_pixoul_confirmed: boolean;
 }
 
 interface CartContextType {
@@ -32,6 +35,11 @@ interface CartContextType {
   removeItem: (cartItemId: string) => Promise<void>;
   clearCart: () => Promise<void>;
   refreshCart: () => Promise<void>;
+  updateCartDetails: (details: {
+    room_location?: string | null;
+    room_details?: string | null;
+    inside_pixoul_confirmed?: boolean;
+  }) => Promise<void>;
 }
 
 const CartContext = createContext<CartContextType | undefined>(undefined);
@@ -73,8 +81,11 @@ export function CartProvider({ children }: { children: ReactNode }) {
 
         setCart({
           ...existingCart,
+          room_location: existingCart.room_location ?? null,
+          room_details: existingCart.room_details ?? null,
+          inside_pixoul_confirmed: existingCart.inside_pixoul_confirmed ?? false,
           items: items || [],
-        });
+        } as Cart);
       }
     } catch (error) {
       console.error('Error fetching cart:', error);
@@ -190,6 +201,20 @@ export function CartProvider({ children }: { children: ReactNode }) {
       if (error) throw error;
 
       await refreshCart();
+      await supabase
+        .from('carts')
+        .update({
+          room_location: null,
+          room_details: null,
+          inside_pixoul_confirmed: false,
+        })
+        .eq('id', cart.id);
+      setCart(prev => prev ? {
+        ...prev,
+        room_location: null,
+        room_details: null,
+        inside_pixoul_confirmed: false,
+      } : prev);
     } catch (error) {
       console.error('Error clearing cart:', error);
     }
@@ -210,11 +235,40 @@ export function CartProvider({ children }: { children: ReactNode }) {
       .update(totals)
       .eq('id', cart.id);
 
-    setCart({
-      ...cart,
+    setCart(prev => prev ? {
+      ...prev,
       ...totals,
       items: items || [],
-    });
+    } : prev);
+  };
+
+  const updateCartDetails = async (details: {
+    room_location?: string | null;
+    room_details?: string | null;
+    inside_pixoul_confirmed?: boolean;
+  }) => {
+    if (!cart) return;
+
+    const updatePayload: Record<string, any> = {};
+    if (details.room_location !== undefined) updatePayload.room_location = details.room_location ?? null;
+    if (details.room_details !== undefined) updatePayload.room_details = details.room_details ?? null;
+    if (details.inside_pixoul_confirmed !== undefined) updatePayload.inside_pixoul_confirmed = details.inside_pixoul_confirmed;
+
+    if (Object.keys(updatePayload).length === 0) return;
+
+    try {
+      const { error } = await supabase
+        .from('carts')
+        .update(updatePayload)
+        .eq('id', cart.id);
+
+      if (error) throw error;
+
+      setCart(prev => prev ? { ...prev, ...updatePayload } : prev);
+    } catch (error) {
+      console.error('Error updating cart details:', error);
+      toast({ title: 'Failed to save location details', variant: 'destructive' });
+    }
   };
 
   const itemCount = cart?.items.reduce((sum, item) => sum + item.qty, 0) || 0;
@@ -229,6 +283,7 @@ export function CartProvider({ children }: { children: ReactNode }) {
         removeItem,
         clearCart,
         refreshCart,
+        updateCartDetails,
       }}
     >
       {children}

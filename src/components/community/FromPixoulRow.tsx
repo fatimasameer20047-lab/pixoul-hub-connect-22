@@ -5,6 +5,8 @@ import { Badge } from '@/components/ui/badge';
 import { Skeleton } from '@/components/ui/skeleton';
 import { Link } from 'react-router-dom';
 
+type PixoulChannel = 'from_pixoul' | 'packages_offers';
+
 interface PixoulPost {
   id: string;
   type: 'event' | 'program' | 'announcement' | 'post';
@@ -16,6 +18,7 @@ interface PixoulPost {
   published: boolean;
   event_date?: string;
   start_time?: string;
+  channel: PixoulChannel;
 }
 
 interface EventProgram {
@@ -43,8 +46,9 @@ export function FromPixoulRow() {
       // Fetch Pixoul posts
       const { data: postsData, error: postsError } = await supabase
         .from('pixoul_posts')
-        .select('*')
+        .select('id,type,title,caption,images,created_at,pinned,published,channel')
         .eq('published', true)
+        .eq('channel', 'from_pixoul')
         .order('pinned', { ascending: false })
         .order('created_at', { ascending: false })
         .limit(8);
@@ -74,11 +78,21 @@ export function FromPixoulRow() {
         published: true,
         event_date: event.event_date,
         start_time: event.start_time,
+        channel: 'from_pixoul',
       }));
 
-      // Combine and sort by date
-      const combined = [...(postsData as PixoulPost[] || []), ...eventPosts]
-        .sort((a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime())
+      // Combine and sort: pinned first, then by date desc
+      const normalizedPosts = ((postsData as PixoulPost[] | null) || []).map(post => ({
+        ...post,
+        channel: post.channel ?? 'from_pixoul',
+      }));
+      const combined = [...normalizedPosts, ...eventPosts]
+        .sort((a, b) => {
+          const ap = a.pinned ? 1 : 0;
+          const bp = b.pinned ? 1 : 0;
+          if (ap !== bp) return bp - ap; // pinned first
+          return new Date(b.created_at).getTime() - new Date(a.created_at).getTime();
+        })
         .slice(0, 12);
 
       setPosts(combined);
@@ -98,17 +112,23 @@ export function FromPixoulRow() {
     }
   };
 
+  console.log('[FromPixoulRow] render', {
+    mode: import.meta.env.MODE,
+    count: posts.length,
+    channels: posts.slice(0, 3).map(post => post.channel),
+  });
+
   if (isLoading) {
     return (
-      <section className="py-8 px-6 bg-muted/30">
+      <section className="py-9 px-6 bg-muted/30">
         <div className="max-w-7xl mx-auto">
-          <div className="flex justify-between items-center mb-4">
+          <div className="flex justify-between items-center mb-5">
             <h2 className="text-2xl font-bold">From Pixoul</h2>
           </div>
-          <div className="flex gap-4 overflow-x-auto pb-4">
+          <div className="flex gap-5 overflow-x-auto px-5 pb-5 max-w-[100svw] snap-x">
             {[...Array(4)].map((_, i) => (
-              <Card key={i} className="min-w-[280px] overflow-hidden">
-                <Skeleton className="h-40 w-full" />
+              <Card key={i} className="w-80 sm:w-84 shrink-0 rounded-2xl shadow overflow-hidden snap-start">
+                <Skeleton className="h-56 w-full" />
                 <div className="p-4">
                   <Skeleton className="h-4 w-20 mb-2" />
                   <Skeleton className="h-4 w-full" />
@@ -126,23 +146,24 @@ export function FromPixoulRow() {
   }
 
   return (
-    <section className="py-8 px-6 bg-muted/30">
+    <section className="py-9 px-6 bg-muted/30">
       <div className="max-w-7xl mx-auto">
-        <div className="flex justify-between items-center mb-4">
+        <div className="flex justify-between items-center mb-5">
           <h2 className="text-2xl font-bold">From Pixoul</h2>
-          <Link to="/from-pixoul" className="text-sm text-primary hover:underline">
+          <Link to="/from-pixoul?channel=from_pixoul" className="text-sm text-primary hover:underline">
             View All
           </Link>
         </div>
 
-        <div className="flex gap-4 overflow-x-auto pb-4 scrollbar-hide">
+        {/* MOBILE: Show exactly 2 cards in view by default; swipe only this row */}
+        <div className="px-5 flex gap-5 overflow-x-auto pb-5 no-scrollbar md:overflow-visible snap-x whitespace-nowrap max-w-[100svw]">
           {posts.map((post) => (
-            <Card 
-              key={post.id} 
-              className="min-w-[320px] max-w-[320px] overflow-hidden hover:shadow-lg transition-shadow cursor-pointer flex-shrink-0"
+            <Card
+              key={post.id}
+              className="overflow-hidden hover:shadow-lg transition-shadow cursor-pointer snap-start w-80 sm:w-84 shrink-0 rounded-2xl bg-card/60 ring-1 ring-border/50"
             >
               {post.images && post.images.length > 0 ? (
-                <div className="relative aspect-video">
+                <div className="relative w-full h-56 sm:h-60">
                   <img
                     src={post.images[0]}
                     alt={post.title || post.caption}
@@ -155,7 +176,7 @@ export function FromPixoulRow() {
                   )}
                 </div>
               ) : (
-                <div className="bg-muted aspect-video flex items-center justify-center relative">
+                <div className="bg-muted w-full h-56 sm:h-60 flex items-center justify-center relative">
                   <p className="text-muted-foreground text-sm">No image</p>
                   {post.pinned && (
                     <Badge className="absolute top-2 right-2" variant="destructive">
