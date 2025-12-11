@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { ArrowLeft, Calendar, Clock, MessageCircle, AlertCircle } from 'lucide-react';
+import { ArrowLeft, Calendar, MessageCircle, AlertCircle } from 'lucide-react';
 import { CheckoutDialog } from '@/components/payment/CheckoutDialog';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
@@ -16,6 +16,7 @@ import { useToast } from '@/hooks/use-toast';
 import { format } from 'date-fns';
 import { cn } from '@/lib/utils';
 import { ChatDialog } from '@/components/chat/ChatDialog';
+import { buildTimeSlots, getBusinessHours, isPhoneValid } from './booking-validators';
 
 interface Room {
   id: string;
@@ -31,11 +32,6 @@ interface RoomBookingFormProps {
   room: Room;
   onBack: () => void;
 }
-
-const timeSlots = [
-  '10:00', '11:00', '12:00', '13:00', '14:00', '15:00',
-  '16:00', '17:00', '18:00', '19:00', '20:00', '21:00'
-];
 
 const isTimeInFuture = (selectedDate: Date, timeSlot: string): boolean => {
   const now = new Date();
@@ -65,6 +61,7 @@ export function RoomBookingForm({ room, onBack }: RoomBookingFormProps) {
   const [availableSlots, setAvailableSlots] = useState<AvailableSlot[]>([]);
   const [bookedSlots, setBookedSlots] = useState<{start_time: string, end_time: string}[]>([]);
   const [conflictError, setConflictError] = useState<string | null>(null);
+  const [phoneError, setPhoneError] = useState<string | null>(null);
   const [bookingId, setBookingId] = useState<string | null>(null);
   const [showCheckout, setShowCheckout] = useState(false);
   const { user } = useAuth();
@@ -122,12 +119,17 @@ export function RoomBookingForm({ room, onBack }: RoomBookingFormProps) {
     }
   };
 
-  const isTimeSlotAvailable = (time: string, durationHours: number) => {
-    if (!bookedSlots.length) return true;
-
+  const isTimeSlotAvailable = (time: string, durationHours: number, targetDate: Date | undefined = date) => {
     const [hours, minutes] = time.split(':').map(Number);
     const startMinutes = hours * 60 + minutes;
     const endMinutes = startMinutes + (durationHours * 60);
+
+    const { close } = getBusinessHours(targetDate);
+    if (endMinutes > close * 60) {
+      return false;
+    }
+
+    if (!bookedSlots.length) return true;
 
     return !bookedSlots.some(booking => {
       const [bookingStartHours, bookingStartMins] = booking.start_time.split(':').map(Number);
@@ -141,11 +143,11 @@ export function RoomBookingForm({ room, onBack }: RoomBookingFormProps) {
     });
   };
 
-  const calculateEndTime = (start: string, hours: number) => {
-    const [startHour, startMin] = start.split(':').map(Number);
-    const endHour = startHour + hours;
-    return `${endHour.toString().padStart(2, '0')}:${startMin.toString().padStart(2, '0')}`;
-  };
+const calculateEndTime = (start: string, hours: number) => {
+  const [startHour, startMin] = start.split(':').map(Number);
+  const endHour = startHour + hours;
+  return `${endHour.toString().padStart(2, '0')}:${startMin.toString().padStart(2, '0')}`;
+};
 
   const calculateTotal = () => {
     if (!duration) return 0;
@@ -155,6 +157,7 @@ export function RoomBookingForm({ room, onBack }: RoomBookingFormProps) {
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!user || !date || !startTime || !duration) return;
+    setPhoneError(null);
 
     // Check if time is in the future
     if (!isTimeInFuture(date, startTime)) {
@@ -162,8 +165,21 @@ export function RoomBookingForm({ room, onBack }: RoomBookingFormProps) {
       return;
     }
 
+    const durationHours = parseInt(duration);
+    const { close } = getBusinessHours(date);
+    const [startHour] = startTime.split(':').map(Number);
+    if (startHour + durationHours > close) {
+      setConflictError('Selected time extends past closing hours.');
+      return;
+    }
+
+    if (!isPhoneValid(contactPhone)) {
+      setPhoneError('Enter a valid UAE mobile number (e.g., 50xxxxxxx).');
+      return;
+    }
+
     // Check availability before submitting
-    if (!isTimeSlotAvailable(startTime, parseInt(duration))) {
+    if (!isTimeSlotAvailable(startTime, durationHours)) {
       setConflictError('This time slot is no longer available. Please choose another time.');
       return;
     }
@@ -172,7 +188,7 @@ export function RoomBookingForm({ room, onBack }: RoomBookingFormProps) {
     setConflictError(null);
 
     try {
-      const endTime = calculateEndTime(startTime, parseInt(duration));
+      const endTime = calculateEndTime(startTime, durationHours);
       const totalAmount = calculateTotal();
 
       const { data, error } = await supabase
@@ -183,12 +199,12 @@ export function RoomBookingForm({ room, onBack }: RoomBookingFormProps) {
           booking_date: format(date, 'yyyy-MM-dd'),
           start_time: startTime,
           end_time: endTime,
-          duration_hours: parseInt(duration),
+          duration_hours: durationHours,
           total_amount: totalAmount,
           status: 'pending',
           payment_status: 'unpaid',
           notes,
-          contact_phone: contactPhone,
+          contact_phone: `971${contactPhone}`,
           contact_email: contactEmail,
         })
         .select()
@@ -292,11 +308,11 @@ export function RoomBookingForm({ room, onBack }: RoomBookingFormProps) {
                       }}
                       disabled={!date}
                     >
-                      <SelectTrigger>
-                        <SelectValue placeholder={date ? "Select time" : "Select date first"} />
-                      </SelectTrigger>
-                      <SelectContent>
-                        {timeSlots.map((time) => {
+                    <SelectTrigger>
+                      <SelectValue placeholder={date ? "Select time" : "Select date first"} />
+                    </SelectTrigger>
+                    <SelectContent>
+                        {buildTimeSlots(date, parseInt(duration) || 1).map((time) => {
                           const durationNum = parseInt(duration) || 1;
                           const available = isTimeSlotAvailable(time, durationNum);
                           const isFuture = date ? isTimeInFuture(date, time) : true;
@@ -311,9 +327,9 @@ export function RoomBookingForm({ room, onBack }: RoomBookingFormProps) {
                             </SelectItem>
                           );
                         })}
-                      </SelectContent>
-                    </Select>
-                  </div>
+                    </SelectContent>
+                  </Select>
+                </div>
 
                   <div className="space-y-2">
                     <Label>Duration (hours)</Label>
@@ -347,12 +363,28 @@ export function RoomBookingForm({ room, onBack }: RoomBookingFormProps) {
 
                   <div className="space-y-2">
                     <Label>Contact Phone</Label>
-                    <Input
-                      type="tel"
-                      value={contactPhone}
-                      onChange={(e) => setContactPhone(e.target.value)}
-                      placeholder="Your phone number"
-                    />
+                    <div className="flex">
+                      <span className="inline-flex items-center px-3 rounded-l-md border border-input bg-muted text-sm text-muted-foreground select-none">
+                        +971
+                      </span>
+                      <Input
+                        type="tel"
+                        inputMode="numeric"
+                        value={contactPhone}
+                        onChange={(e) => {
+                          const digits = e.target.value.replace(/\\D/g, '').slice(0, 9);
+                          setContactPhone(digits);
+                          if (phoneError && isPhoneValid(digits)) {
+                            setPhoneError(null);
+                          }
+                        }}
+                        placeholder="5xxxxxxxx"
+                        className="rounded-l-none"
+                      />
+                    </div>
+                    {phoneError && (
+                      <p className="text-sm text-destructive">{phoneError}</p>
+                    )}
                   </div>
 
                   <div className="space-y-2 md:col-span-2">
@@ -378,7 +410,7 @@ export function RoomBookingForm({ room, onBack }: RoomBookingFormProps) {
                 <Button 
                   type="submit" 
                   className="w-full" 
-                  disabled={!date || !startTime || !duration || isSubmitting}
+                  disabled={!date || !startTime || !duration || isSubmitting || !isPhoneValid(contactPhone)}
                 >
                   {isSubmitting ? 'Processing...' : 'Confirm Booking'}
                 </Button>

@@ -291,6 +291,11 @@ export default function Booking() {
               <p className="text-muted-foreground">
                 Let us help you create the perfect gaming party experience
               </p>
+              <div className="mt-3 rounded-lg border border-dashed border-border/70 bg-muted/40 p-3 space-y-1">
+                <div className="text-sm font-semibold">Birthday Bash pricing</div>
+                <p className="text-sm text-muted-foreground">Weekdays (Mon–Thu): AED 199 / kid</p>
+                <p className="text-sm text-muted-foreground">Weekends (Fri–Sun): AED 235 / kid</p>
+              </div>
             </CardHeader>
             <CardContent className="space-y-6">
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">

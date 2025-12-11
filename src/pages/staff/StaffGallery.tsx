@@ -50,6 +50,7 @@ export default function StaffGallery() {
       .from('gallery_items')
       .select('*')
       .eq('visibility', 'private')
+      .eq('comment_count', -1)
       .order('created_at', { ascending: false });
 
     const { data: publicData } = await supabase
@@ -65,7 +66,7 @@ export default function StaffGallery() {
   const approvePost = async (id: string) => {
     const { error } = await supabase
       .from('gallery_items')
-      .update({ visibility: 'public' })
+      .update({ visibility: 'public', comment_count: 0 })
       .eq('id', id);
 
     if (error) {

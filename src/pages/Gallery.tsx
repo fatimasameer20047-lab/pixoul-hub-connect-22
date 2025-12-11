@@ -56,7 +56,7 @@ export default function Gallery() {
         ...item,
         visibility: (item.visibility as any) as 'private' | 'pending' | 'public',
         caption: item.caption || '',
-        comment_count: item.comment_count || 0
+        comment_count: item.comment_count || 0,
       })));
     } catch (error) {
       console.error('Error fetching my photos:', error);
@@ -197,23 +197,23 @@ export default function Gallery() {
         .from('gallery')
         .getPublicUrl(feedPath);
 
-      // Save to database
+      // Store pending submissions as visibility='private' with a sentinel comment_count to distinguish them
+      const isPending = visibility === 'public';
+      const targetVisibility = isPending ? 'private' : 'private';
+      const pendingFlag = isPending ? -1 : undefined;
+
       const { error: dbError } = await supabase
         .from('gallery_items')
         .insert({
           user_id: userId,
           url: publicUrl,
-          // If user chose Submit for Approval, mark as pending; else keep private only
-          visibility: visibility === 'public' ? 'pending' : 'private',
-          caption
+          visibility: targetVisibility,
+          caption,
+          ...(pendingFlag !== undefined ? { comment_count: pendingFlag } : {})
         });
 
       if (dbError) throw dbError;
-      if (visibility === 'public') {
-        toast.success('Photo uploaded and sent for approval.');
-      } else {
-        toast.success('Photo saved privately.');
-      }
+      toast.success(isPending ? 'Photo uploaded and sent for approval.' : 'Photo saved privately.');
       
       // Refresh photos
       await fetchMyPhotos();
@@ -289,18 +289,18 @@ export default function Gallery() {
   const handleChangeVisibility = async (photoId: string, newVisibility: 'private' | 'public') => {
     try {
       // Enforce approval: private -> public becomes pending
-      const targetVisibility = newVisibility === 'public' ? 'pending' : 'private';
+      const targetVisibility = newVisibility === 'public' ? 'private' : 'private';
+      const pendingFlag = newVisibility === 'public' ? -1 : undefined;
       const { error } = await supabase
         .from('gallery_items')
-        .update({ visibility: targetVisibility })
+        .update({
+          visibility: targetVisibility,
+          ...(pendingFlag !== undefined ? { comment_count: pendingFlag } : { comment_count: 0 }),
+        })
         .eq('id', photoId);
 
       if (error) throw error;
-      if (targetVisibility === 'pending') {
-        toast.success('Submitted for approval.');
-      } else {
-        toast.success('Photo is now private');
-      }
+      toast.success(newVisibility === 'public' ? 'Submitted for approval.' : 'Photo is now private');
       
       // Refresh photos
       await fetchMyPhotos();
@@ -317,14 +317,14 @@ export default function Gallery() {
 
   const filteredMyPhotos = myPhotos.filter(photo => {
     if (myFilter === 'all') return true;
-    if (myFilter === 'private') return photo.visibility === 'private' || photo.visibility === 'pending';
-    return photo.visibility === myFilter;
+    if (myFilter === 'private') return photo.visibility === 'private';
+    return photo.visibility === 'public';
   });
 
   const getFilterCounts = () => {
     return {
       all: myPhotos.length,
-      private: myPhotos.filter(p => p.visibility === 'private' || p.visibility === 'pending').length,
+      private: myPhotos.filter(p => p.visibility === 'private').length,
       public: myPhotos.filter(p => p.visibility === 'public').length,
     };
   };

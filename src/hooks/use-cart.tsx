@@ -2,6 +2,7 @@ import { createContext, useContext, useState, useEffect, ReactNode } from 'react
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/contexts/AuthContext';
 import { toast } from '@/hooks/use-toast';
+import { isPackageMenuItem } from '@/lib/package-catalog';
 
 interface CartItem {
   id: string;
@@ -12,6 +13,7 @@ interface CartItem {
   qty: number;
   line_total: number;
   image_url?: string;
+  item_type?: string;
 }
 
 interface Cart {
@@ -34,7 +36,7 @@ interface CartContextType {
   updateQuantity: (cartItemId: string, quantity: number) => Promise<void>;
   removeItem: (cartItemId: string) => Promise<void>;
   clearCart: () => Promise<void>;
-  refreshCart: () => Promise<void>;
+  refreshCart: (cartId?: string) => Promise<void>;
   updateCartDetails: (details: {
     room_location?: string | null;
     room_details?: string | null;
@@ -51,7 +53,7 @@ export function CartProvider({ children }: { children: ReactNode }) {
   const fetchCart = async () => {
     if (!user) {
       setCart(null);
-      return;
+      return null;
     }
 
     try {
@@ -64,32 +66,38 @@ export function CartProvider({ children }: { children: ReactNode }) {
         .maybeSingle();
 
       if (!existingCart) {
-        const { data: newCart } = await supabase
+        const { data: newCart, error: cartError } = await supabase
           .from('carts')
           .insert({ user_id: user.id })
           .select()
           .single();
+        if (cartError) throw cartError;
         existingCart = newCart;
       }
 
       if (existingCart) {
         // Fetch cart items
-        const { data: items } = await supabase
+        const { data: items, error: itemsError } = await supabase
           .from('cart_items')
           .select('*')
           .eq('cart_id', existingCart.id);
 
-        setCart({
+        if (itemsError) throw itemsError;
+
+        const newCart: Cart = {
           ...existingCart,
           room_location: existingCart.room_location ?? null,
           room_details: existingCart.room_details ?? null,
           inside_pixoul_confirmed: existingCart.inside_pixoul_confirmed ?? false,
           items: items || [],
-        } as Cart);
+        };
+        setCart(newCart);
+        return newCart;
       }
     } catch (error) {
       console.error('Error fetching cart:', error);
     }
+    return null;
   };
 
   useEffect(() => {
@@ -106,37 +114,66 @@ export function CartProvider({ children }: { children: ReactNode }) {
   };
 
   const addToCart = async (item: { id: string; name: string; price: number; image_url?: string }, quantity: number) => {
-    if (!user || !cart) {
+    if (!user) {
+      toast({ title: 'Please sign in to add items to cart', variant: 'destructive' });
+      return;
+    }
+
+    let activeCart = cart;
+    if (!activeCart) {
+      activeCart = await fetchCart();
+    }
+
+    if (!activeCart) {
       toast({ title: 'Please sign in to add items to cart', variant: 'destructive' });
       return;
     }
 
     try {
+      const isPackage = isPackageMenuItem(item.id);
+
       // Check if item already exists in cart
-      const existingItem = cart.items.find(i => i.menu_item_id === item.id);
+      const existingItem = isPackage
+        ? activeCart.items.find(i => i.item_type === 'package' && i.name === item.name)
+        : activeCart.items.find(i => i.menu_item_id === item.id);
 
       if (existingItem) {
         const newQty = existingItem.qty + quantity;
         await updateQuantity(existingItem.id, newQty);
       } else {
         const line_total = item.price * quantity;
-        
-        const { error } = await supabase
-          .from('cart_items')
-          .insert({
-            cart_id: cart.id,
-            menu_item_id: item.id,
-            name: item.name,
-            unit_price: item.price,
-            qty: quantity,
-            line_total,
-            image_url: item.image_url,
-          });
 
-        if (error) throw error;
+        if (isPackage) {
+          const { error } = await supabase
+            .from('cart_items')
+            .insert({
+              cart_id: activeCart.id,
+              item_type: 'package',
+              name: item.name,
+              unit_price: item.price,
+              qty: quantity,
+              line_total,
+            });
+
+          if (error) throw error;
+        } else {
+          const { error } = await supabase
+            .from('cart_items')
+            .insert({
+              cart_id: activeCart.id,
+              menu_item_id: item.id,
+              name: item.name,
+              unit_price: item.price,
+              qty: quantity,
+              line_total,
+              image_url: item.image_url,
+            });
+
+          if (error) throw error;
+        }
       }
 
-      await refreshCart();
+      await refreshCart(activeCart.id);
       toast({ title: `Added ${item.name} to cart` });
     } catch (error) {
       console.error('Error adding to cart:', error);
@@ -220,20 +257,21 @@ export function CartProvider({ children }: { children: ReactNode }) {
     }
   };
 
-  const refreshCart = async () => {
-    if (!cart) return;
+  const refreshCart = async (targetCartId?: string) => {
+    const cartId = targetCartId || cart?.id;
+    if (!cartId) return;
 
     const { data: items } = await supabase
       .from('cart_items')
       .select('*')
-      .eq('cart_id', cart.id);
+      .eq('cart_id', cartId);
 
     const totals = calculateTotals(items || []);
 
     await supabase
       .from('carts')
       .update(totals)
-      .eq('id', cart.id);
+      .eq('id', cartId);
 
     setCart(prev => prev ? {
       ...prev,
