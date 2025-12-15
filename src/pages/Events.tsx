@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { Calendar, Clock, Users, DollarSign, Filter, Search, Plus, Settings } from 'lucide-react';
+import { Calendar, Clock, DollarSign, Filter, Search, Settings, Phone } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
@@ -26,9 +26,10 @@ interface Event {
   start_time: string;
   end_time?: string;
   duration_minutes?: number;
-  max_participants?: number;
-  current_participants: number;
-  price: number;
+  price?: number | null;
+  contact_phone?: string | null;
+  start_date?: string | null;
+  end_date?: string | null;
   location?: string;
   instructor?: string;
   requirements?: string[];
@@ -67,7 +68,8 @@ export default function Events() {
         .from('events_programs')
         .select('*')
         .eq('is_active', true)
-        .order('event_date', { ascending: true });
+        .order('event_date', { ascending: true })
+        .order('start_date', { ascending: true });
 
       if (error) throw error;
       setEvents((data || []).map(event => ({
@@ -110,9 +112,9 @@ export default function Events() {
     // Date filter
     const today = startOfDay(new Date());
     if (dateFilter === 'upcoming') {
-      filtered = filtered.filter(event => !isBefore(parseISO(event.event_date), today));
+      filtered = filtered.filter(event => !isEventPast(event));
     } else if (dateFilter === 'past') {
-      filtered = filtered.filter(event => isBefore(parseISO(event.event_date), today));
+      filtered = filtered.filter(event => isEventPast(event));
     }
 
     setFilteredEvents(filtered);
@@ -125,12 +127,12 @@ export default function Events() {
     return categories;
   };
 
-  const isEventFull = (event: Event) => {
-    return event.max_participants && event.current_participants >= event.max_participants;
-  };
-
   const isEventPast = (event: Event) => {
-    return isBefore(parseISO(event.event_date), startOfDay(new Date()));
+    const compareDate = event.type === 'program'
+      ? (event.end_date || event.start_date || null)
+      : event.event_date;
+    if (!compareDate) return false;
+    return isBefore(parseISO(compareDate), startOfDay(new Date()));
   };
 
   if (selectedEvent) {
@@ -291,27 +293,43 @@ export default function Events() {
                 </CardHeader>
                 <CardContent className="space-y-3">
                   <div className="space-y-1.5 text-xs">
-                    <div className="flex items-center gap-2">
-                      <Calendar className="h-4 w-4" />
-                      {format(parseISO(event.event_date), 'MMM dd, yyyy')}
-                    </div>
+                    {event.type === 'event' && (
+                      <div className="flex items-center gap-2">
+                        <Calendar className="h-4 w-4" />
+                        {format(parseISO(event.event_date), 'MMM dd, yyyy')}
+                      </div>
+                    )}
                     <div className="flex items-center gap-2">
                       <Clock className="h-4 w-4" />
-                      {event.start_time}
-                      {event.duration_minutes && ` (${event.duration_minutes}min)`}
+                      <span className="capitalize">
+                        {event.type === 'program' ? 'Start Date:' : 'Start Time:'}
+                      </span>
+                      <span>{event.start_time}</span>
+                      {event.type === 'program' && event.duration_minutes && ` (${event.duration_minutes}min)`}
                     </div>
+                    {event.type === 'program' && (event.price || 0) > 0 && (
+                      <div className="flex items-center gap-2">
+                        <DollarSign className="h-4 w-4" />
+                        {formatPriceAEDUSD(event.price || 0)}
+                      </div>
+                    )}
+                    {event.type === 'program' && event.contact_phone && (
+                      <div className="flex items-center gap-2 text-[11px] text-muted-foreground">
+                        <Phone className="h-4 w-4" />
+                        <span>If interested, contact: {event.contact_phone}</span>
+                      </div>
+                    )}
                   </div>
                   <Button 
                     className="w-full h-9 text-sm" 
-                    variant={isEventPast(event) || isEventFull(event) ? "outline" : "default"}
-                    disabled={isEventPast(event) || isEventFull(event)}
+                    variant={isEventPast(event) ? "outline" : "default"}
+                    disabled={isEventPast(event)}
                     onClick={(e) => {
                       e.stopPropagation();
                       setSelectedEvent(event);
                     }}
                   >
-                    {isEventPast(event) ? 'Past Event' : 
-                     isEventFull(event) ? 'Event Full' : 'View Details'}
+                    {isEventPast(event) ? 'Past Event' : 'View Details'}
                   </Button>
                 </CardContent>
               </Card>
@@ -352,9 +370,6 @@ export default function Events() {
                       {isEventPast(event) && (
                         <Badge variant="outline">Past</Badge>
                       )}
-                      {isEventFull(event) && !isEventPast(event) && (
-                        <Badge variant="destructive">Full</Badge>
-                      )}
                     </div>
                   </div>
                   {event.category && (
@@ -369,25 +384,30 @@ export default function Events() {
                   </p>
 
                   <div className="space-y-2 text-sm">
-                    <div className="flex items-center gap-2">
-                      <Calendar className="h-4 w-4" />
-                      {format(parseISO(event.event_date), 'MMM dd, yyyy')}
-                    </div>
-                    <div className="flex items-center gap-2">
-                      <Clock className="h-4 w-4" />
-                      {event.start_time}
-                      {event.duration_minutes && ` (${event.duration_minutes}min)`}
-                    </div>
-                    {event.max_participants && (
+                    {event.type === 'event' && (
                       <div className="flex items-center gap-2">
-                        <Users className="h-4 w-4" />
-                        {event.current_participants}/{event.max_participants} participants
+                        <Calendar className="h-4 w-4" />
+                        {format(parseISO(event.event_date), 'MMM dd, yyyy')}
                       </div>
                     )}
-                    {event.price > 0 && (
+                    <div className="flex items-center gap-2">
+                      <Clock className="h-4 w-4" />
+                      <span className="capitalize">
+                        {event.type === 'program' ? 'Start Date:' : 'Start Time:'}
+                      </span>
+                      <span>{event.start_time}</span>
+                      {event.type === 'program' && event.duration_minutes && ` (${event.duration_minutes}min)`}
+                    </div>
+                    {event.type === 'program' && (event.price || 0) > 0 && (
                       <div className="flex items-center gap-2">
                         <DollarSign className="h-4 w-4" />
-                        {formatPriceAEDUSD(event.price)}
+                        {formatPriceAEDUSD(event.price || 0)}
+                      </div>
+                    )}
+                    {event.type === 'program' && event.contact_phone && (
+                      <div className="flex items-center gap-2 text-xs text-muted-foreground">
+                        <Phone className="h-4 w-4" />
+                        <span>If interested, contact: {event.contact_phone}</span>
                       </div>
                     )}
                     {event.instructor && (
@@ -401,15 +421,13 @@ export default function Events() {
                   <div className="flex flex-col sm:flex-row gap-2">
                     <Button 
                       className="flex-1 w-full" 
-                      variant={isEventPast(event) || isEventFull(event) ? "outline" : "default"}
-                      disabled={isEventPast(event) || isEventFull(event)}
+                      variant={isEventPast(event) ? "outline" : "default"}
                       onClick={(e) => {
                         e.stopPropagation();
                         setSelectedEvent(event);
                       }}
                     >
-                      {isEventPast(event) ? 'Past Event' : 
-                       isEventFull(event) ? 'Event Full' : 'View Details'}
+                      {isEventPast(event) ? 'Past Event' : 'View Details'}
                     </Button>
                     {isDemoMode && (
                       <Button

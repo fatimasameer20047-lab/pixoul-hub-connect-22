@@ -18,7 +18,6 @@ import { packageGroups, PackageGroup } from '@/lib/package-catalog';
 import { supabase } from '@/integrations/supabase/client';
 import { cn } from '@/lib/utils';
 import { CheckoutDialog } from '@/components/payment/CheckoutDialog';
-import { ChatDialog } from '@/components/chat/ChatDialog';
 import { format } from 'date-fns';
 import { buildTimeSlots, getBusinessHours, isPhoneValid } from './booking-validators';
 
@@ -26,6 +25,19 @@ type PackageSelection = {
   group: PackageGroup;
   item: PackageGroup['items'][number];
   option: PackageGroup['items'][number]['options'][number];
+};
+
+type DbPackageRow = {
+  id: string;
+  group_key: string;
+  group_title: string;
+  group_subtitle: string | null;
+  package_name: string;
+  option_label: string;
+  duration_hours: number;
+  price: number;
+  description: string | null;
+  sort_order: number;
 };
 
 type RoomRecord = {
@@ -63,9 +75,80 @@ function resolveRoomType(itemId: string, groupId: string) {
 export function PackagesOffersBooking() {
   const [selectedOptions, setSelectedOptions] = useState<Record<string, string>>({});
   const [selection, setSelection] = useState<PackageSelection | null>(null);
+  const [packages, setPackages] = useState<PackageGroup[]>(packageGroups);
+  const [loadingPackages, setLoadingPackages] = useState(true);
+  const [packagesError, setPackagesError] = useState<string | null>(null);
   const { user } = useAuth();
   const { toast } = useToast();
   const navigate = useNavigate();
+
+  const buildGroupsFromRows = useCallback((rows: DbPackageRow[]): PackageGroup[] => {
+    if (!rows?.length) return [];
+
+    const groupMap = new Map<string, PackageGroup>();
+    const itemMap = new Map<string, PackageGroup['items'][number]>();
+
+    const slugify = (value: string) => value.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/(^-|-$)/g, '');
+
+    rows.forEach((row) => {
+      const groupId = row.group_key || slugify(row.group_title || 'group');
+      const existingGroup = groupMap.get(groupId);
+      if (!existingGroup) {
+        groupMap.set(groupId, {
+          id: groupId,
+          title: row.group_title || row.group_key,
+          subtitle: row.group_subtitle || '',
+          items: [],
+        });
+      }
+      const itemKey = `${groupId}-${slugify(row.package_name)}`;
+      let item = itemMap.get(itemKey);
+      if (!item) {
+        item = {
+          id: itemKey,
+          name: row.package_name,
+          description: row.description || '',
+          options: [],
+        };
+        itemMap.set(itemKey, item);
+        groupMap.get(groupId)!.items.push(item);
+      }
+      item.options.push({
+        id: row.id,
+        label: row.option_label,
+        durationHours: row.duration_hours,
+        price: Number(row.price),
+        menuItemId: row.id,
+      });
+    });
+
+    return Array.from(groupMap.values());
+  }, []);
+
+  const loadPackages = useCallback(async () => {
+    setLoadingPackages(true);
+    setPackagesError(null);
+    const { data, error } = await supabase
+      .from('booking_packages')
+      .select('*')
+      .eq('is_active', true)
+      .order('group_key', { ascending: true })
+      .order('sort_order', { ascending: true });
+
+    if (error) {
+      console.error('Error loading booking packages', error);
+      setPackagesError('Unable to load packages right now.');
+      setPackages(packageGroups);
+    } else {
+      const groups = buildGroupsFromRows((data as DbPackageRow[]) || []);
+      setPackages(groups.length ? groups : packageGroups);
+    }
+    setLoadingPackages(false);
+  }, [buildGroupsFromRows]);
+
+  useEffect(() => {
+    loadPackages();
+  }, [loadPackages]);
 
   const handleSelect = async (group: PackageGroup, item: PackageGroup['items'][number], option: PackageGroup['items'][number]['options'][number]) => {
     if (!user) {
@@ -109,8 +192,17 @@ export function PackagesOffersBooking() {
         </Button>
       </div>
 
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-        {packageGroups.map((group) => (
+      {packagesError && (
+        <Alert variant="destructive">
+          <AlertDescription>{packagesError}</AlertDescription>
+        </Alert>
+      )}
+
+      {loadingPackages ? (
+        <div className="text-sm text-muted-foreground">Loading packages...</div>
+      ) : (
+        <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+        {packages.map((group) => (
           <Card
             key={group.id}
             className="group hover:shadow-lg hover:shadow-primary/20 transition-all duration-300 overflow-hidden"
@@ -166,6 +258,7 @@ export function PackagesOffersBooking() {
           </Card>
         ))}
       </div>
+      )}
 
       <div className="rounded-lg border border-dashed border-border/70 p-4 text-sm text-muted-foreground bg-muted/30">
         <p>
@@ -188,7 +281,6 @@ function PackageBookingForm({ selection, onBack }: { selection: PackageSelection
   const [contactPhone, setContactPhone] = useState('');
   const [contactEmail, setContactEmail] = useState('');
   const [isSubmitting, setIsSubmitting] = useState(false);
-  const [showChat, setShowChat] = useState(false);
   const [bookingId, setBookingId] = useState<string | null>(null);
   const [showCheckout, setShowCheckout] = useState(false);
   const [room, setRoom] = useState<RoomRecord | null>(null);
@@ -507,15 +599,6 @@ function PackageBookingForm({ selection, onBack }: { selection: PackageSelection
                   {isSubmitting ? 'Processing...' : 'Confirm Booking'}
                 </Button>
 
-                <Button
-                  variant="outline"
-                  onClick={() => setShowChat(true)}
-                  className="w-full"
-                  disabled={!user}
-                >
-                  <MessageCircle className="h-4 w-4 mr-2" />
-                  Chat with Booking Team
-                </Button>
               </form>
             </CardContent>
           </Card>
@@ -586,16 +669,6 @@ function PackageBookingForm({ selection, onBack }: { selection: PackageSelection
           ) : null}
         </div>
       </div>
-
-      {showChat && (
-        <ChatDialog
-          isOpen={showChat}
-          onClose={() => setShowChat(false)}
-          conversationType="room_booking"
-          referenceId={room?.id || selection.item.id}
-          title={`${packageLabel} - Booking Support`}
-        />
-      )}
 
       {bookingId && (
         <CheckoutDialog

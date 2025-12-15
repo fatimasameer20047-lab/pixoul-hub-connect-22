@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { ArrowLeft, Calendar, Clock, Users, DollarSign, Upload, Plus, X, ImageIcon } from 'lucide-react';
+import { ArrowLeft, Calendar, Clock, X, ImageIcon, Phone, Plus } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
@@ -25,8 +25,10 @@ interface Event {
   start_time: string;
   end_time?: string;
   duration_minutes?: number;
-  max_participants?: number;
-  price: number;
+  price?: number | null;
+  contact_phone?: string | null;
+  start_date?: string | null;
+  end_date?: string | null;
   location?: string;
   instructor?: string;
   requirements?: string[];
@@ -37,6 +39,37 @@ interface EventFormProps {
   event?: Event;
   onBack: () => void;
   onSuccess: () => void;
+}
+
+class EventFormErrorBoundary extends React.Component<
+  { children: React.ReactNode },
+  { hasError: boolean; error?: Error }
+> {
+  state = { hasError: false, error: undefined as Error | undefined };
+
+  static getDerivedStateFromError(error: Error) {
+    return { hasError: true, error };
+  }
+
+  componentDidCatch(error: Error, info: React.ErrorInfo) {
+    console.error('Event form render error', error, info);
+  }
+
+  render() {
+    if (this.state.hasError) {
+      return (
+        <div className="container mx-auto px-4 py-12">
+          <div className="rounded-lg border border-destructive/30 bg-destructive/5 p-6">
+            <h3 className="text-lg font-semibold text-destructive mb-2">Unable to load event form</h3>
+            <p className="text-sm text-muted-foreground">
+              Please refresh and try again. If the problem persists, contact an administrator.
+            </p>
+          </div>
+        </div>
+      );
+    }
+    return this.props.children as React.ReactElement;
+  }
 }
 
 const timeSlots = [
@@ -53,14 +86,20 @@ export function EventForm({ event, onBack, onSuccess }: EventFormProps) {
     category: event?.category || '',
     location: event?.location || '',
     instructor: event?.instructor || '',
-    price: event?.price?.toString() || '0',
-    maxParticipants: event?.max_participants?.toString() || '',
+    price: event?.price?.toString() || '',
+    contactPhone: event?.contact_phone || '',
     durationMinutes: event?.duration_minutes?.toString() || '',
     requirements: event?.requirements?.join('\n') || '',
   });
   
   const [eventDate, setEventDate] = useState<Date | undefined>(
     event?.event_date ? new Date(event.event_date) : undefined
+  );
+  const [programStartDate, setProgramStartDate] = useState<Date | undefined>(
+    event?.start_date ? new Date(event.start_date) : undefined
+  );
+  const [programEndDate, setProgramEndDate] = useState<Date | undefined>(
+    event?.end_date ? new Date(event.end_date) : undefined
   );
   const [startTime, setStartTime] = useState(event?.start_time || '');
   const [endTime, setEndTime] = useState(event?.end_time || '');
@@ -71,6 +110,8 @@ export function EventForm({ event, onBack, onSuccess }: EventFormProps) {
   const { user } = useAuth();
   const { canManageEvents } = useStaff();
   const { toast } = useToast();
+  const isProgram = formData.type === 'program';
+  const isEvent = formData.type === 'event';
 
   const handleInputChange = (field: string, value: string) => {
     setFormData(prev => ({ ...prev, [field]: value }));
@@ -162,27 +203,48 @@ export function EventForm({ event, onBack, onSuccess }: EventFormProps) {
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!user || !canManageEvents || !eventDate) return;
+    if (!user || !canManageEvents) return;
+    const isProgram = formData.type === 'program';
+    if (!isProgram && !eventDate) return;
+    if (isProgram && (!programStartDate || !programEndDate)) return;
 
     setIsSubmitting(true);
 
     try {
-      const eventData = {
+      const isProgram = formData.type === 'program';
+      const parsedPrice = isProgram ? parseFloat(formData.price || '0') : null;
+
+      const baseData = {
         title: formData.title,
         description: formData.description,
         type: formData.type,
         category: formData.category || null,
-        event_date: format(eventDate, 'yyyy-MM-dd'),
-        start_time: startTime,
-        end_time: endTime || null,
-        duration_minutes: formData.durationMinutes ? parseInt(formData.durationMinutes) : null,
-        max_participants: formData.maxParticipants ? parseInt(formData.maxParticipants) : null,
-        price: parseFloat(formData.price),
+        price: parsedPrice,
+        contact_phone: isProgram ? formData.contactPhone : null,
         location: formData.location || null,
         instructor: formData.instructor || null,
         requirements: formData.requirements ? formData.requirements.split('\n').filter(r => r.trim()) : null,
         is_active: true,
+        max_participants: null,
       };
+
+      const scheduleData = isProgram
+        ? {
+            start_date: programStartDate ? format(programStartDate, 'yyyy-MM-dd') : null,
+            end_date: programEndDate ? format(programEndDate, 'yyyy-MM-dd') : null,
+            duration_minutes: formData.durationMinutes ? parseInt(formData.durationMinutes) : null,
+          }
+        : {
+            event_date: eventDate ? format(eventDate, 'yyyy-MM-dd') : null,
+            start_time: startTime,
+            end_time: endTime || null,
+          };
+
+      const cleanup = isProgram
+        ? { event_date: null, start_time: null, end_time: null }
+        : { start_date: null, end_date: null, duration_minutes: null };
+
+      const eventData = { ...baseData, ...scheduleData, ...cleanup };
 
       let eventId = event?.id;
       let error;
@@ -251,7 +313,8 @@ export function EventForm({ event, onBack, onSuccess }: EventFormProps) {
   }
 
   return (
-    <div className="container mx-auto px-4 py-8">
+    <EventFormErrorBoundary>
+      <div className="container mx-auto px-4 py-8">
       <Button 
         variant="ghost" 
         onClick={onBack}
@@ -315,96 +378,166 @@ export function EventForm({ event, onBack, onSuccess }: EventFormProps) {
                 />
               </div>
 
+              {formData.type === 'event' && (
+                <>
+                  <div className="space-y-2">
+                    <Label>Event Date *</Label>
+                    <Popover>
+                      <PopoverTrigger asChild>
+                        <Button
+                          variant="outline"
+                          className={cn(
+                            "justify-start text-left font-normal",
+                            !eventDate && "text-muted-foreground"
+                          )}
+                        >
+                          <Calendar className="mr-2 h-4 w-4" />
+                          {eventDate ? format(eventDate, "PPP") : "Pick a date"}
+                        </Button>
+                      </PopoverTrigger>
+                      <PopoverContent className="w-auto p-0">
+                        <CalendarComponent
+                          mode="single"
+                          selected={eventDate}
+                          onSelect={setEventDate}
+                          disabled={(date) => date < new Date()}
+                          className="pointer-events-auto"
+                        />
+                      </PopoverContent>
+                    </Popover>
+                  </div>
+
+                  <div className="space-y-2">
+                    <Label>Start Time *</Label>
+                    <Select value={startTime} onValueChange={setStartTime}>
+                      <SelectTrigger>
+                        <SelectValue placeholder="Select start time" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        {timeSlots.map((time) => (
+                          <SelectItem key={time} value={time}>
+                            {time}
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                  </div>
+
+                  <div className="space-y-2">
+                    <Label>End Time</Label>
+                    <Select value={endTime} onValueChange={setEndTime}>
+                      <SelectTrigger>
+                        <SelectValue placeholder="Select end time" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        {timeSlots.map((time) => (
+                          <SelectItem key={time} value={time}>
+                            {time}
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                  </div>
+                </>
+              )}
+
+              {formData.type === 'program' && (
+                <>
+                  <div className="space-y-2">
+                    <Label>Start Date *</Label>
+                    <Popover>
+                      <PopoverTrigger asChild>
+                        <Button
+                          variant="outline"
+                          className={cn(
+                            "justify-start text-left font-normal",
+                            !programStartDate && "text-muted-foreground"
+                          )}
+                        >
+                          <Calendar className="mr-2 h-4 w-4" />
+                          {programStartDate ? format(programStartDate, "PPP") : "Pick a start date"}
+                        </Button>
+                      </PopoverTrigger>
+                      <PopoverContent className="w-auto p-0">
+                        <CalendarComponent
+                          mode="single"
+                          selected={programStartDate}
+                          onSelect={setProgramStartDate}
+                          disabled={(date) => date < new Date()}
+                          className="pointer-events-auto"
+                        />
+                      </PopoverContent>
+                    </Popover>
+                  </div>
+
+                  <div className="space-y-2">
+                    <Label>End Date *</Label>
+                    <Popover>
+                      <PopoverTrigger asChild>
+                        <Button
+                          variant="outline"
+                          className={cn(
+                            "justify-start text-left font-normal",
+                            !programEndDate && "text-muted-foreground"
+                          )}
+                        >
+                          <Calendar className="mr-2 h-4 w-4" />
+                          {programEndDate ? format(programEndDate, "PPP") : "Pick an end date"}
+                        </Button>
+                      </PopoverTrigger>
+                      <PopoverContent className="w-auto p-0">
+                        <CalendarComponent
+                          mode="single"
+                          selected={programEndDate}
+                          onSelect={setProgramEndDate}
+                          disabled={(date) => date < new Date()}
+                          className="pointer-events-auto"
+                        />
+                      </PopoverContent>
+                    </Popover>
+                  </div>
+                </>
+              )}
+
+              {formData.type === 'program' && (
               <div className="space-y-2">
-                <Label>Event Date *</Label>
-                <Popover>
-                  <PopoverTrigger asChild>
-                    <Button
-                      variant="outline"
-                      className={cn(
-                        "justify-start text-left font-normal",
-                        !eventDate && "text-muted-foreground"
-                      )}
-                    >
-                      <Calendar className="mr-2 h-4 w-4" />
-                      {eventDate ? format(eventDate, "PPP") : "Pick a date"}
-                    </Button>
-                  </PopoverTrigger>
-                  <PopoverContent className="w-auto p-0">
-                    <CalendarComponent
-                      mode="single"
-                      selected={eventDate}
-                      onSelect={setEventDate}
-                      disabled={(date) => date < new Date()}
-                      className="pointer-events-auto"
+                  <Label>Duration (minutes)</Label>
+                  <Input
+                    type="number"
+                    value={formData.durationMinutes}
+                    onChange={(e) => handleInputChange('durationMinutes', e.target.value)}
+                    placeholder="e.g., 120"
+                />
+              </div>
+              )}
+
+              {formData.type === 'program' && (
+                <>
+                  <div className="space-y-2">
+                    <Label>Price (USD/AED) *</Label>
+                    <Input
+                      type="number"
+                      step="0.01"
+                      value={formData.price}
+                      onChange={(e) => handleInputChange('price', e.target.value)}
+                      placeholder="0.00"
+                      required
                     />
-                  </PopoverContent>
-                </Popover>
-              </div>
-
-              <div className="space-y-2">
-                <Label>Start Time *</Label>
-                <Select value={startTime} onValueChange={setStartTime}>
-                  <SelectTrigger>
-                    <SelectValue placeholder="Select start time" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    {timeSlots.map((time) => (
-                      <SelectItem key={time} value={time}>
-                        {time}
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-              </div>
-
-              <div className="space-y-2">
-                <Label>End Time</Label>
-                <Select value={endTime} onValueChange={setEndTime}>
-                  <SelectTrigger>
-                    <SelectValue placeholder="Select end time" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    {timeSlots.map((time) => (
-                      <SelectItem key={time} value={time}>
-                        {time}
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-              </div>
-
-              <div className="space-y-2">
-                <Label>Duration (minutes)</Label>
-                <Input
-                  type="number"
-                  value={formData.durationMinutes}
-                  onChange={(e) => handleInputChange('durationMinutes', e.target.value)}
-                  placeholder="e.g., 120"
-                />
-              </div>
-
-              <div className="space-y-2">
-                <Label>Max Participants</Label>
-                <Input
-                  type="number"
-                  value={formData.maxParticipants}
-                  onChange={(e) => handleInputChange('maxParticipants', e.target.value)}
-                  placeholder="Maximum number of participants"
-                />
-              </div>
-
-              <div className="space-y-2">
-                <Label>Price (USD/AED) *</Label>
-                <Input
-                  type="number"
-                  step="0.01"
-                  value={formData.price}
-                  onChange={(e) => handleInputChange('price', e.target.value)}
-                  placeholder="0.00"
-                  required
-                />
-              </div>
+                  </div>
+                  <div className="space-y-2">
+                    <Label>Contact Phone *</Label>
+                    <div className="flex items-center gap-2">
+                      <Phone className="h-4 w-4 text-muted-foreground" />
+                      <Input
+                        value={formData.contactPhone}
+                        onChange={(e) => handleInputChange('contactPhone', e.target.value)}
+                        placeholder="+971XXXXXXXXX"
+                        required
+                      />
+                    </div>
+                  </div>
+                </>
+              )}
 
               <div className="space-y-2">
                 <Label>Instructor</Label>
@@ -479,17 +612,19 @@ export function EventForm({ event, onBack, onSuccess }: EventFormProps) {
               <p className="text-xs text-muted-foreground">Enter each requirement on a separate line</p>
             </div>
 
-            <div className="bg-muted/50 p-4 rounded-lg">
-              <h3 className="font-semibold mb-2">Price Display</h3>
-              <p className="text-sm text-muted-foreground">
-                Price will be displayed in both USD and AED (converted automatically) to customers.
-                {formData.price && (
-                  <span className="block mt-1">
-                    Display: ${formData.price} USD / {(parseFloat(formData.price) * 3.67).toFixed(2)} AED
-                  </span>
-                )}
-              </p>
-            </div>
+            {formData.type === 'program' && (
+              <div className="bg-muted/50 p-4 rounded-lg">
+                <h3 className="font-semibold mb-2">Price Display</h3>
+                <p className="text-sm text-muted-foreground">
+                  Price will be displayed in both USD and AED (converted automatically) to customers.
+                  {formData.price && (
+                    <span className="block mt-1">
+                      Display: ${formData.price} USD / {(parseFloat(formData.price) * 3.67).toFixed(2)} AED
+                    </span>
+                  )}
+                </p>
+              </div>
+            )}
 
             <Button 
               type="submit" 
@@ -497,8 +632,9 @@ export function EventForm({ event, onBack, onSuccess }: EventFormProps) {
               disabled={
                 !formData.title || 
                 !formData.description || 
-                !eventDate || 
-                !startTime ||
+                (isEvent && (!eventDate || !startTime)) ||
+                (isProgram && (!programStartDate || !programEndDate)) ||
+                (isProgram && (!formData.price || !formData.contactPhone)) ||
                 isSubmitting ||
                 isUploadingImage
               }
@@ -508,6 +644,7 @@ export function EventForm({ event, onBack, onSuccess }: EventFormProps) {
           </form>
         </CardContent>
       </Card>
-    </div>
+      </div>
+    </EventFormErrorBoundary>
   );
 }

@@ -10,6 +10,8 @@ import { supabase } from '@/integrations/supabase/client';
 import { formatPriceAEDUSD } from '@/lib/price-formatter';
 import { ImageViewer } from '@/components/ui/image-viewer';
 import { useLocation, useNavigate } from 'react-router-dom';
+import OrdersStatus from './OrdersStatus';
+import { Sheet, SheetContent, SheetHeader, SheetTitle } from '@/components/ui/sheet';
 
 interface SnackItem {
   id: string;
@@ -33,6 +35,7 @@ export default function Snacks() {
   const location = useLocation();
   const navigate = useNavigate();
   const [openCartOnLoad] = useState(() => Boolean((location.state as { openCart?: boolean } | null)?.openCart));
+  const [showOrders, setShowOrders] = useState(false);
 
   useEffect(() => {
     if ((location.state as { openCart?: boolean } | null)?.openCart) {
@@ -216,7 +219,12 @@ export default function Snacks() {
             Order refreshments for your stay
           </p>
         </div>
-        <CartDrawer openOnLoad={openCartOnLoad} />
+        <div className="flex items-center gap-2">
+          <Button variant="outline" onClick={() => setShowOrders(true)}>
+            My Orders
+          </Button>
+          <CartDrawer openOnLoad={openCartOnLoad} />
+        </div>
       </div>
 
       <Tabs value={selectedCategory} onValueChange={setSelectedCategory} className="w-full">
@@ -253,6 +261,16 @@ export default function Snacks() {
         open={showViewer}
         onOpenChange={setShowViewer}
       />
+      <Sheet open={showOrders} onOpenChange={setShowOrders}>
+        <SheetContent side="right" className="w-full sm:max-w-lg">
+          <SheetHeader>
+            <SheetTitle>My Orders</SheetTitle>
+          </SheetHeader>
+          <div className="mt-4">
+            <OrdersStatus />
+          </div>
+        </SheetContent>
+      </Sheet>
     </div>
   );
 }

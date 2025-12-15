@@ -1,14 +1,14 @@
 import React, { useState, useEffect } from 'react';
-import { Calendar, Clock, Users, MapPin, MessageCircle, CheckCircle, XCircle, Loader } from 'lucide-react';
+import { Calendar, Clock, Users, MapPin, CheckCircle, XCircle, Loader } from 'lucide-react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
-import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/contexts/AuthContext';
 import { useToast } from '@/hooks/use-toast';
 import { format, parseISO } from 'date-fns';
-import { ChatDialog } from '@/components/chat/ChatDialog';
+import { supabase } from '@/integrations/supabase/client';
+import { useNavigate } from 'react-router-dom';
 
 interface RoomBooking {
   id: string;
@@ -45,7 +45,7 @@ export function MyBookings() {
   const [roomBookings, setRoomBookings] = useState<RoomBooking[]>([]);
   const [partyRequests, setPartyRequests] = useState<PartyRequest[]>([]);
   const [loading, setLoading] = useState(true);
-  const [selectedChat, setSelectedChat] = useState<{type: 'room_booking' | 'party_request', id: string, title: string} | null>(null);
+  const navigate = useNavigate();
   const { user } = useAuth();
   const { toast } = useToast();
 
@@ -121,10 +121,6 @@ export function MyBookings() {
     }
   };
 
-  const handleChatOpen = (type: 'room_booking' | 'party_request', id: string, title: string) => {
-    setSelectedChat({ type, id, title });
-  };
-
   if (loading) {
     return (
       <div className="flex items-center justify-center py-12">
@@ -189,16 +185,7 @@ export function MyBookings() {
                     </div>
                   )}
 
-                  <div className="flex gap-2">
-                    <Button
-                      variant="outline"
-                      size="sm"
-                      onClick={() => handleChatOpen('room_booking', booking.id, `${booking.rooms.name} - ${format(parseISO(booking.booking_date), 'MMM dd')}`)}
-                    >
-                      <MessageCircle className="h-4 w-4 mr-2" />
-                      Chat with Staff
-                    </Button>
-                  </div>
+                  <div className="flex gap-2" />
                 </CardContent>
               </Card>
             ))
@@ -259,16 +246,7 @@ export function MyBookings() {
                     </div>
                   )}
 
-                  <div className="flex gap-2">
-                    <Button
-                      variant="outline"
-                      size="sm"
-                      onClick={() => handleChatOpen('party_request', party.id, `${party.name}'s ${party.party_type} Party`)}
-                    >
-                      <MessageCircle className="h-4 w-4 mr-2" />
-                      Chat with Staff
-                    </Button>
-                  </div>
+                  <div className="flex gap-2" />
                 </CardContent>
               </Card>
             ))
@@ -276,15 +254,6 @@ export function MyBookings() {
         </TabsContent>
       </Tabs>
 
-      {selectedChat && (
-        <ChatDialog
-          isOpen={!!selectedChat}
-          onClose={() => setSelectedChat(null)}
-          conversationType={selectedChat.type}
-          referenceId={selectedChat.id}
-          title={selectedChat.title}
-        />
-      )}
     </>
   );
 }

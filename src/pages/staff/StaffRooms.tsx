@@ -11,6 +11,9 @@ import { BookingDashboard } from '@/components/booking/BookingDashboard';
 import { formatPriceAEDUSD } from '@/lib/price-formatter';
 import { ImageViewer } from '@/components/ui/image-viewer';
 import { PartyGalleryManager } from '@/components/booking/PartyGalleryManager';
+import { useSearchParams } from 'react-router-dom';
+import { PackagesManager } from '@/components/booking/PackagesManager';
+import { PartyPricingEditor } from '@/components/booking/PartyPricingEditor';
 
 interface Room {
   id: string;
@@ -30,6 +33,8 @@ export default function StaffRooms() {
   const [viewerImages, setViewerImages] = useState<string[]>([]);
   const [showViewer, setShowViewer] = useState(false);
   const { toast } = useToast();
+  const [searchParams] = useSearchParams();
+  const chatParam = searchParams.get('chat');
 
   useEffect(() => {
     fetchRooms();
@@ -118,11 +123,16 @@ export default function StaffRooms() {
         ))}
       </div>
 
+      <div className="grid gap-6 lg:grid-cols-2">
+        <PackagesManager />
+        <PartyPricingEditor />
+      </div>
+
       <div className="mt-8">
         <PartyGalleryManager />
       </div>
 
-      <BookingDashboard />
+      <BookingDashboard initialChatId={chatParam || undefined} />
 
       <AddRoomDialog
         open={showAddRoom}

@@ -9,6 +9,7 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/u
 import { Upload, X, Plus, Edit, Trash2 } from 'lucide-react';
 import { supabase } from '@/integrations/supabase/client';
 import { useToast } from '@/hooks/use-toast';
+import { useAuth } from '@/contexts/AuthContext';
 
 interface PartyGalleryItem {
   id: string;
@@ -27,6 +28,7 @@ export function PartyGalleryManager() {
   const [selectedFiles, setSelectedFiles] = useState<File[]>([]);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const { toast } = useToast();
+  const { user } = useAuth();
 
   useEffect(() => {
     fetchItems();
@@ -68,6 +70,14 @@ export function PartyGalleryManager() {
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
+    if (!user) {
+      toast({
+        title: "Not signed in",
+        description: "You must be signed in as booking staff to add gallery items.",
+        variant: "destructive",
+      });
+      return;
+    }
     setIsSubmitting(true);
 
     try {
@@ -75,7 +85,7 @@ export function PartyGalleryManager() {
 
       // Upload new photos
       for (const file of selectedFiles) {
-        const fileName = `${Date.now()}-${file.name}`;
+        const fileName = `${user.id}/${Date.now()}-${file.name}`;
         const { error: uploadError } = await supabase.storage
           .from('party-gallery')
           .upload(fileName, file);
@@ -137,9 +147,12 @@ export function PartyGalleryManager() {
       setShowForm(false);
       fetchItems();
     } catch (error: any) {
+      const isRlsError = typeof error?.message === 'string' && error.message.toLowerCase().includes('row-level security');
       toast({
         title: "Operation failed",
-        description: error.message,
+        description: isRlsError 
+          ? "RLS blocked this action. Ensure you're signed in as booking staff (policy requires booking role)."
+          : error.message,
         variant: "destructive",
       });
     } finally {

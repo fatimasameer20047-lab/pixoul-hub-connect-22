@@ -39,14 +39,16 @@ interface PixoulPost {
   channel: PixoulChannel;
 }
 
-const PIXEL_STAFF_EMAIL = 'pixoulgaming@staffportal.com';
-
 const CHANNEL_LABELS: Record<PixoulChannel, string> = {
   from_pixoul: 'From Pixoul',
   packages_offers: 'Packages & Offers',
 };
 
-const StaffPixoulPosts = () => {
+interface StaffPixoulPostsProps {
+  embedded?: boolean;
+}
+
+const StaffPixoulPosts = ({ embedded = false }: StaffPixoulPostsProps) => {
   const { user } = useAuth();
   const [posts, setPosts] = useState<PixoulPost[]>([]);
   const [isLoading, setIsLoading] = useState(true);
@@ -54,9 +56,10 @@ const StaffPixoulPosts = () => {
   const [editingPost, setEditingPost] = useState<PixoulPost | null>(null);
   const [uploading, setUploading] = useState(false);
   const [channelFilter, setChannelFilter] = useState<'all' | PixoulChannel>('all');
+  const isPackagesEditLocked = false;
 
-  const isPixoulStaff = user?.email === PIXEL_STAFF_EMAIL;
   const isStaffPortalUser = user?.email?.endsWith('@staffportal.com');
+  const isPixoulStaff = user?.email === 'pixoulgaming@staffportal.com';
 
   // Form state
   const [formData, setFormData] = useState({
@@ -102,8 +105,12 @@ const StaffPixoulPosts = () => {
   const handleImageUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const files = e.target.files;
     if (!files || files.length === 0) return;
-    if (editingPost?.channel === 'packages_offers' && !isPixoulStaff) {
-      toast.error('Only Pixel Gaming can edit this post');
+    if (!user) {
+      toast.error('You must be signed in to upload images.');
+      return;
+    }
+    if (!isPixoulStaff) {
+      toast.error('Only pixoulgaming@staffportal.com can upload images (per current policy).');
       return;
     }
 
@@ -111,24 +118,32 @@ const StaffPixoulPosts = () => {
     const uploadedUrls: string[] = [];
 
     try {
-      // Create post first to get ID if editing, or use temp ID
+      // Use the current post ID if editing, otherwise a temp folder for new uploads
       const postId = editingPost?.id || crypto.randomUUID();
 
       for (const file of Array.from(files)) {
-        const fileExt = file.name.split('.').pop();
-        const fileName = `${postId}/${Date.now()}.${fileExt}`;
+        const fileExt = file.name.split('.').pop() || 'jpg';
+        const uniqueSuffix = `${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
+        const fileName = `${postId}/${uniqueSuffix}.${fileExt}`;
 
-        const { error: uploadError } = await supabase.storage
-          .from('pixoul-posts')
-          .upload(fileName, file);
+        const bucket = supabase.storage.from('pixoul-posts');
+        const { data: uploadData, error: uploadError } = await bucket.upload(fileName, file, {
+          cacheControl: '3600',
+          upsert: false,
+          contentType: file.type || 'image/jpeg',
+        });
 
         if (uploadError) throw uploadError;
+        if (!uploadData?.path) {
+          throw new Error('Upload path missing');
+        }
 
-        const { data: { publicUrl } } = supabase.storage
-          .from('pixoul-posts')
-          .getPublicUrl(fileName);
+        const { data: publicUrlData } = bucket.getPublicUrl(uploadData.path);
+        if (!publicUrlData?.publicUrl) {
+          throw new Error('Failed to obtain public URL');
+        }
 
-        uploadedUrls.push(publicUrl);
+        uploadedUrls.push(publicUrlData.publicUrl);
       }
 
       setFormData(prev => ({
@@ -141,6 +156,8 @@ const StaffPixoulPosts = () => {
       toast.error('Failed to upload images');
     } finally {
       setUploading(false);
+      // reset input so the same file can be re-selected if needed
+      if (e.target) e.target.value = '';
     }
   };
 
@@ -153,37 +170,38 @@ const StaffPixoulPosts = () => {
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
+    if (!user) {
+      toast.error('You must be signed in to post.');
+      return;
+    }
+    if (!isPixoulStaff) {
+      toast.error('Only pixoulgaming@staffportal.com can create or edit posts (per current policy).');
+      return;
+    }
     
     if (!formData.caption.trim()) {
       toast.error('Caption is required');
       return;
     }
 
-    if (!isPixoulStaff && formData.channel === 'packages_offers') {
-      toast.error('Only Pixel Gaming can create Packages & Offers posts');
-      return;
-    }
-
-    if (editingPost?.channel === 'packages_offers' && !isPixoulStaff) {
-      toast.error('Only Pixel Gaming can edit this post');
-      return;
-    }
-
     try {
-      if (editingPost) {
-        const updateData: any = {
-          channel: formData.channel,
-          type: formData.type,
-          title: formData.title || null,
-          caption: formData.caption,
-          published: formData.published,
-          images: formData.images,
-          pinned: formData.pinned,
-        };
+      const now = new Date().toISOString();
+      const basePost = {
+        author_id: editingPost?.author_id || user.id,
+        channel: formData.channel,
+        type: formData.type,
+        title: formData.title || null,
+        caption: formData.caption,
+        published: formData.published,
+        images: formData.images,
+        pinned: formData.pinned,
+        updated_at: now,
+      };
 
+      if (editingPost) {
         const { error } = await supabase
           .from('pixoul_posts')
-          .update(updateData)
+          .update(basePost)
           .eq('id', editingPost.id);
 
         if (error) {
@@ -192,20 +210,13 @@ const StaffPixoulPosts = () => {
         }
         toast.success('Post updated successfully');
       } else {
-        const insertData: any = {
-          author_id: user!.id,
-          channel: formData.channel,
-          type: formData.type,
-          title: formData.title || null,
-          caption: formData.caption,
-          published: formData.published,
-          images: formData.images,
-          pinned: formData.pinned,
-        };
-
         const { error } = await supabase
           .from('pixoul_posts')
-          .insert(insertData);
+          .insert({
+            ...basePost,
+            author_id: user.id,
+            created_at: now,
+          });
 
         if (error) {
           console.error('Insert error:', error);
@@ -224,11 +235,6 @@ const StaffPixoulPosts = () => {
   };
 
   const handleDelete = async (post: PixoulPost) => {
-    if (post.channel === 'packages_offers' && !isPixoulStaff) {
-      toast.error('Only Pixel Gaming can delete Packages & Offers posts');
-      return;
-    }
-
     if (!confirm('Are you sure you want to delete this post?')) return;
 
     try {
@@ -247,11 +253,6 @@ const StaffPixoulPosts = () => {
   };
 
   const togglePin = async (post: PixoulPost) => {
-    if (post.channel === 'packages_offers' && !isPixoulStaff) {
-      toast.error('Only Pixel Gaming can pin Packages & Offers posts');
-      return;
-    }
-
     try {
       const newPinned = !post.pinned;
       
@@ -301,32 +302,30 @@ const StaffPixoulPosts = () => {
       ? posts
       : posts.filter(post => post.channel === channelFilter);
 
-  const isPackagesEditLocked = Boolean(editingPost && editingPost.channel === 'packages_offers' && !isPixoulStaff);
-  const channelSelectOptions = isPixoulStaff
-    ? [
-        { value: 'from_pixoul' as PixoulChannel, label: CHANNEL_LABELS.from_pixoul },
-        { value: 'packages_offers' as PixoulChannel, label: CHANNEL_LABELS.packages_offers },
-      ]
-    : [{ value: 'from_pixoul' as PixoulChannel, label: CHANNEL_LABELS.from_pixoul }];
-  const shouldShowChannelSelect = isPixoulStaff || formData.channel === 'from_pixoul';
+  const channelSelectOptions = [
+    { value: 'from_pixoul' as PixoulChannel, label: CHANNEL_LABELS.from_pixoul },
+    { value: 'packages_offers' as PixoulChannel, label: CHANNEL_LABELS.packages_offers },
+  ];
   const channelFilters: { label: string; value: 'all' | PixoulChannel }[] = [
     { label: 'All', value: 'all' },
     { label: 'From Pixoul', value: 'from_pixoul' },
     { label: 'Packages & Offers', value: 'packages_offers' },
   ];
 
-  if (!isStaffPortalUser) {
+  if (!isStaffPortalUser || !isPixoulStaff) {
     return (
-      <div className="p-8">
+      <div className={embedded ? "" : "p-8"}>
         <p className="text-muted-foreground">Access denied. This page is only for Pixoul staff.</p>
       </div>
     );
   }
 
+  const containerClass = embedded ? "space-y-6" : "min-h-screen bg-background p-6";
+
   return (
-    <div className="min-h-screen bg-background p-6">
-      <div className="max-w-6xl mx-auto">
-        <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between mb-6">
+    <div className={containerClass}>
+      <div className="max-w-6xl mx-auto space-y-6">
+        <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
           <div>
             <h1 className="text-3xl font-bold">Pixoul Posts</h1>
             <p className="text-sm text-muted-foreground">
@@ -356,39 +355,26 @@ const StaffPixoulPosts = () => {
 
                 <div>
                   <label className="text-sm font-medium mb-2 block">Channel *</label>
-                  {shouldShowChannelSelect ? (
-                    <Select
-                      value={formData.channel}
-                      onValueChange={(value: PixoulChannel) =>
-                        setFormData(prev => ({ ...prev, channel: value }))
-                      }
-                      disabled={isPackagesEditLocked}
-                    >
-                      <SelectTrigger>
-                        <SelectValue />
-                      </SelectTrigger>
-                      <SelectContent>
-                        {channelSelectOptions.map(option => (
-                          <SelectItem
-                            key={option.value}
-                            value={option.value}
-                            disabled={!isPixoulStaff && option.value !== 'from_pixoul'}
-                          >
-                            {option.label}
-                          </SelectItem>
-                        ))}
-                      </SelectContent>
-                    </Select>
-                  ) : (
-                    <div className="rounded-md border border-border/70 bg-muted/40 px-3 py-2 text-sm text-muted-foreground">
-                      {CHANNEL_LABELS[formData.channel]}
-                    </div>
-                  )}
-                  {!isPixoulStaff && (
-                    <p className="text-xs text-muted-foreground mt-1">
-                      Packages &amp; Offers can only be managed by Pixel Gaming.
-                    </p>
-                  )}
+                  <Select
+                    value={formData.channel}
+                    onValueChange={(value: PixoulChannel) =>
+                      setFormData(prev => ({ ...prev, channel: value }))
+                    }
+                  >
+                    <SelectTrigger>
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {channelSelectOptions.map(option => (
+                        <SelectItem
+                          key={option.value}
+                          value={option.value}
+                        >
+                          {option.label}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
                 </div>
 
                 <div>
@@ -398,7 +384,6 @@ const StaffPixoulPosts = () => {
                     onValueChange={(value: PixoulPost['type']) =>
                       setFormData(prev => ({ ...prev, type: value }))
                     }
-                    disabled={isPackagesEditLocked}
                   >
                     <SelectTrigger>
                       <SelectValue />
@@ -418,7 +403,6 @@ const StaffPixoulPosts = () => {
                     value={formData.title}
                     onChange={(e) => setFormData(prev => ({ ...prev, title: e.target.value }))}
                     placeholder="Enter title..."
-                    disabled={isPackagesEditLocked}
                   />
                 </div>
 
@@ -430,7 +414,6 @@ const StaffPixoulPosts = () => {
                     placeholder="What's on your mind?"
                     rows={4}
                     required
-                    disabled={isPackagesEditLocked}
                   />
                 </div>
 
@@ -446,22 +429,21 @@ const StaffPixoulPosts = () => {
                               alt={`Upload ${index + 1}`}
                               className="w-full h-32 object-cover rounded"
                             />
-                            <button
-                              type="button"
-                              onClick={() => removeImage(url)}
-                              disabled={isPackagesEditLocked}
-                              className="absolute top-1 right-1 bg-destructive text-destructive-foreground rounded-full p-1 hover:bg-destructive/90 disabled:opacity-60 disabled:pointer-events-none"
-                            >
-                              <X className="h-3 w-3" />
-                            </button>
-                          </div>
+                          <button
+                            type="button"
+                            onClick={() => removeImage(url)}
+                            className="absolute top-1 right-1 bg-destructive text-destructive-foreground rounded-full p-1 hover:bg-destructive/90 disabled:opacity-60 disabled:pointer-events-none"
+                          >
+                            <X className="h-3 w-3" />
+                          </button>
+                        </div>
                         ))}
                       </div>
                     )}
                     <Button
                       type="button"
                       variant="outline"
-                      disabled={uploading || isPackagesEditLocked}
+                      disabled={uploading}
                       onClick={() => document.getElementById('image-upload')?.click()}
                     >
                       <Upload className="mr-2 h-4 w-4" />
@@ -486,7 +468,6 @@ const StaffPixoulPosts = () => {
                     checked={formData.pinned}
                     onChange={(e) => setFormData(prev => ({ ...prev, pinned: e.target.checked }))}
                     className="h-4 w-4"
-                    disabled={isPackagesEditLocked}
                   />
                   <label htmlFor="pinned" className="text-sm font-medium">
                     Pin to top
@@ -500,7 +481,6 @@ const StaffPixoulPosts = () => {
                     checked={formData.published}
                     onChange={(e) => setFormData(prev => ({ ...prev, published: e.target.checked }))}
                     className="h-4 w-4"
-                    disabled={isPackagesEditLocked}
                   />
                   <label htmlFor="published" className="text-sm font-medium">
                     Published
@@ -508,18 +488,15 @@ const StaffPixoulPosts = () => {
                 </div>
 
                 <div className="flex gap-2">
-                  {!isPackagesEditLocked && (
-                    <Button type="submit" className="flex-1">
-                      {editingPost ? 'Update' : 'Create'} Post
-                    </Button>
-                  )}
+                  <Button type="submit" className="flex-1">
+                    {editingPost ? 'Update' : 'Create'} Post
+                  </Button>
                   <Button
                     type="button"
                     variant="outline"
                     onClick={() => setIsDialogOpen(false)}
-                    className={isPackagesEditLocked ? 'flex-1' : undefined}
                   >
-                    {isPackagesEditLocked ? 'Close' : 'Cancel'}
+                    Cancel
                   </Button>
                 </div>
               </form>
@@ -527,7 +504,7 @@ const StaffPixoulPosts = () => {
           </Dialog>
         </div>
 
-        <div className="flex flex-wrap gap-2 mb-6">
+        <div className="flex flex-wrap gap-2">
           {channelFilters.map(option => (
             <Button
               key={option.value}
@@ -551,7 +528,6 @@ const StaffPixoulPosts = () => {
             </p>
           ) : (
             filteredPosts.map((post) => {
-              const packageLocked = post.channel === 'packages_offers' && !isPixoulStaff;
               return (
                 <Card key={post.id} className="p-4">
                   <div className="flex justify-between items-start mb-2">
@@ -570,7 +546,6 @@ const StaffPixoulPosts = () => {
                       size="sm"
                       variant="outline"
                       onClick={() => togglePin(post)}
-                      disabled={packageLocked}
                     >
                       {post.pinned ? 'Unpin' : 'Pin'}
                     </Button>
@@ -585,7 +560,6 @@ const StaffPixoulPosts = () => {
                       size="sm"
                       variant="ghost"
                       onClick={() => handleDelete(post)}
-                      disabled={packageLocked}
                     >
                       <Trash2 className="h-4 w-4" />
                     </Button>
@@ -608,11 +582,6 @@ const StaffPixoulPosts = () => {
                   <p className="text-xs text-muted-foreground mt-2">
                     {new Date(post.created_at).toLocaleString()}
                   </p>
-                  {packageLocked && (
-                    <p className="text-xs text-muted-foreground mt-1">
-                      Packages &amp; Offers can only be updated by Pixel Gaming.
-                    </p>
-                  )}
                 </Card>
               );
             })

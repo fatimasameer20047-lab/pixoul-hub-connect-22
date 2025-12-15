@@ -188,7 +188,7 @@ export function EventRegistrations({ eventId, eventTitle, onBack }: EventRegistr
                   <TableHead>Email</TableHead>
                   <TableHead>Party Size</TableHead>
                   <TableHead>Status</TableHead>
-                  <TableHead>Registered</TableHead>
+                  <TableHead>Registered At</TableHead>
                   <TableHead>Notes</TableHead>
                   <TableHead>Actions</TableHead>
                 </TableRow>
@@ -211,7 +211,7 @@ export function EventRegistrations({ eventId, eventTitle, onBack }: EventRegistr
                     <TableCell>{registration.party_size}</TableCell>
                     <TableCell>{getStatusBadge(registration.status)}</TableCell>
                     <TableCell>
-                      {format(parseISO(registration.created_at), 'MMM dd, yyyy')}
+                      {format(parseISO(registration.created_at), 'MMM dd, yyyy p')}
                     </TableCell>
                     <TableCell className="max-w-[200px] truncate">
                       {registration.notes || '-'}

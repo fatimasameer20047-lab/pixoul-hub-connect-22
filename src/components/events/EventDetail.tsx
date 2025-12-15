@@ -1,5 +1,5 @@
-import React, { useState } from 'react';
-import { ArrowLeft, Calendar, Clock, Users, DollarSign, MapPin, User, MessageCircle } from 'lucide-react';
+import React, { useMemo, useState } from 'react';
+import { ArrowLeft, Calendar, Clock, DollarSign, MapPin, User, Phone } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
@@ -10,7 +10,6 @@ import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/contexts/AuthContext';
 import { useToast } from '@/hooks/use-toast';
 import { format, parseISO, isBefore, startOfDay } from 'date-fns';
-import { ChatDialog } from '@/components/chat/ChatDialog';
 import { CheckoutDialog } from '@/components/payment/CheckoutDialog';
 import { formatPriceAEDUSD } from '@/lib/price-formatter';
 
@@ -24,9 +23,8 @@ interface Event {
   start_time: string;
   end_time?: string;
   duration_minutes?: number;
-  max_participants?: number;
-  current_participants: number;
-  price: number;
+  price?: number | null;
+  contact_phone?: string | null;
   location?: string;
   instructor?: string;
   requirements?: string[];
@@ -42,7 +40,6 @@ interface EventDetailProps {
 
 export function EventDetail({ event, onBack, onRegistrationComplete }: EventDetailProps) {
   const [showRegistrationForm, setShowRegistrationForm] = useState(false);
-  const [showChat, setShowChat] = useState(false);
   const [registrationData, setRegistrationData] = useState({
     participantName: '',
     participantEmail: '',
@@ -55,9 +52,17 @@ export function EventDetail({ event, onBack, onRegistrationComplete }: EventDeta
   const { user } = useAuth();
   const { toast } = useToast();
 
-  const isEventFull = event.max_participants && event.current_participants >= event.max_participants;
-  const isEventPast = isBefore(parseISO(event.event_date), startOfDay(new Date()));
-  const canRegister = user && !isEventFull && !isEventPast;
+  const eventPrice = useMemo(
+    () => (event.type === 'program' ? event.price || 0 : 0),
+    [event.price, event.type]
+  );
+  const comparisonDate =
+    event.type === 'program'
+      ? event.end_date || event.start_date || null
+      : event.event_date;
+  const isEventPast = comparisonDate
+    ? isBefore(parseISO(comparisonDate), startOfDay(new Date()))
+    : false;
 
   const handleRegistration = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -67,7 +72,7 @@ export function EventDetail({ event, onBack, onRegistrationComplete }: EventDeta
 
     try {
       const partySize = parseInt(registrationData.partySize);
-      const totalAmount = event.price * partySize;
+      const totalAmount = eventPrice * partySize;
 
       // Create registration with unpaid status
       const { data: registration, error } = await supabase
@@ -88,7 +93,7 @@ export function EventDetail({ event, onBack, onRegistrationComplete }: EventDeta
 
       if (error) throw error;
 
-      if (event.price > 0) {
+      if (eventPrice > 0) {
         // If event has a price, open checkout dialog
         setRegistrationId(registration.id);
         setShowCheckout(true);
@@ -215,22 +220,24 @@ export function EventDetail({ event, onBack, onRegistrationComplete }: EventDeta
                     <span>Event:</span>
                     <span>{event.title}</span>
                   </div>
+                  {event.type === 'event' && (
+                    <div className="flex justify-between">
+                      <span>Date:</span>
+                      <span>{format(parseISO(event.event_date), 'MMM dd, yyyy')}</span>
+                    </div>
+                  )}
                   <div className="flex justify-between">
-                    <span>Date:</span>
-                    <span>{format(parseISO(event.event_date), 'MMM dd, yyyy')}</span>
-                  </div>
-                  <div className="flex justify-between">
-                    <span>Time:</span>
+                    <span>{event.type === 'program' ? 'Start Date:' : 'Time:'}</span>
                     <span>{event.start_time}</span>
                   </div>
                   <div className="flex justify-between">
                     <span>Party Size:</span>
                     <span>{registrationData.partySize} {parseInt(registrationData.partySize) === 1 ? 'person' : 'people'}</span>
                   </div>
-                  {event.price > 0 && (
+                  {eventPrice > 0 && (
                     <div className="flex justify-between font-semibold">
                       <span>Total:</span>
-                      <span>{formatPriceAEDUSD(event.price * parseInt(registrationData.partySize))}</span>
+                      <span>{formatPriceAEDUSD(eventPrice * parseInt(registrationData.partySize))}</span>
                     </div>
                   )}
                 </div>
@@ -253,7 +260,7 @@ export function EventDetail({ event, onBack, onRegistrationComplete }: EventDeta
             onOpenChange={setShowCheckout}
             type="event"
             referenceId={registrationId}
-            amount={event.price * parseInt(registrationData.partySize)}
+            amount={eventPrice * parseInt(registrationData.partySize)}
             itemName={event.title}
             description={`Event registration for ${registrationData.partySize} ${parseInt(registrationData.partySize) === 1 ? 'person' : 'people'}`}
             onSuccess={handleCheckoutSuccess}
@@ -301,34 +308,30 @@ export function EventDetail({ event, onBack, onRegistrationComplete }: EventDeta
                       {isEventPast && (
                         <Badge variant="outline">Past Event</Badge>
                       )}
-                      {isEventFull && !isEventPast && (
-                        <Badge variant="destructive">Full</Badge>
-                      )}
                     </div>
                   </div>
                 </div>
               </CardHeader>
               <CardContent className="space-y-6">
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4 text-sm">
-                  <div className="flex items-center gap-2">
-                    <Calendar className="h-4 w-4" />
-                    {format(parseISO(event.event_date), 'MMMM dd, yyyy')}
-                  </div>
-                  <div className="flex items-center gap-2">
-                    <Clock className="h-4 w-4" />
-                    {event.start_time}
-                    {event.duration_minutes && ` (${event.duration_minutes}min)`}
-                  </div>
-                  {event.max_participants && (
+                  {event.type === 'event' && (
                     <div className="flex items-center gap-2">
-                      <Users className="h-4 w-4" />
-                      {event.current_participants}/{event.max_participants} participants
+                      <Calendar className="h-4 w-4" />
+                      {format(parseISO(event.event_date), 'MMMM dd, yyyy')}
                     </div>
                   )}
-                  {event.price > 0 && (
+                  <div className="flex items-center gap-2">
+                    <Clock className="h-4 w-4" />
+                    <span className="capitalize">
+                      {event.type === 'program' ? 'Start Date:' : 'Start Time:'}
+                    </span>
+                    <span>{event.start_time}</span>
+                    {event.type === 'program' && event.duration_minutes && ` (${event.duration_minutes}min)`}
+                  </div>
+                  {event.type === 'program' && eventPrice > 0 && (
                     <div className="flex items-center gap-2">
                       <DollarSign className="h-4 w-4" />
-                      {formatPriceAEDUSD(event.price)} per person
+                      {formatPriceAEDUSD(eventPrice)} per person
                     </div>
                   )}
                   {event.location && (
@@ -349,6 +352,13 @@ export function EventDetail({ event, onBack, onRegistrationComplete }: EventDeta
                   <h3 className="font-semibold mb-2">Description</h3>
                   <p className="text-muted-foreground">{event.description}</p>
                 </div>
+
+                {event.type === 'program' && event.contact_phone && (
+                  <div className="flex items-center gap-2 text-sm text-muted-foreground">
+                    <Phone className="h-4 w-4" />
+                    <span>If interested, contact: {event.contact_phone}</span>
+                  </div>
+                )}
 
                 {event.requirements && event.requirements.length > 0 && (
                   <div>
@@ -381,13 +391,6 @@ export function EventDetail({ event, onBack, onRegistrationComplete }: EventDeta
                   <div className="text-center">
                     <p className="text-muted-foreground">This event has already passed.</p>
                   </div>
-                ) : isEventFull ? (
-                  <div className="text-center">
-                    <p className="text-muted-foreground mb-4">This event is currently full.</p>
-                    <Button variant="outline" className="w-full">
-                      Join Waitlist
-                    </Button>
-                  </div>
                 ) : (
                   <>
                     <Button 
@@ -396,66 +399,18 @@ export function EventDetail({ event, onBack, onRegistrationComplete }: EventDeta
                     >
                       Register Now
                     </Button>
-                    {event.price > 0 && (
+                    {event.type === 'program' && eventPrice > 0 && (
                       <p className="text-xs text-muted-foreground text-center">
                         Payment will be processed after registration
                       </p>
                     )}
                   </>
                 )}
-
-                <Button
-                  variant="outline"
-                  onClick={() => setShowChat(true)}
-                  className="w-full"
-                  disabled={!user}
-                >
-                  <MessageCircle className="h-4 w-4 mr-2" />
-                  Contact Organizer
-                </Button>
               </CardContent>
             </Card>
-
-            {event.max_participants && (
-              <Card>
-                <CardHeader>
-                  <CardTitle>Availability</CardTitle>
-                </CardHeader>
-                <CardContent>
-                  <div className="space-y-2">
-                    <div className="flex justify-between text-sm">
-                      <span>Registered:</span>
-                      <span>{event.current_participants}</span>
-                    </div>
-                    <div className="flex justify-between text-sm">
-                      <span>Available:</span>
-                      <span>{event.max_participants - event.current_participants}</span>
-                    </div>
-                    <div className="w-full bg-muted rounded-full h-2">
-                      <div
-                        className="bg-primary h-2 rounded-full transition-all"
-                        style={{
-                          width: `${Math.min((event.current_participants / event.max_participants) * 100, 100)}%`
-                        }}
-                      />
-                    </div>
-                  </div>
-                </CardContent>
-              </Card>
-            )}
           </div>
         </div>
       </div>
-
-      {showChat && (
-        <ChatDialog
-          isOpen={showChat}
-          onClose={() => setShowChat(false)}
-          conversationType="event_organizer"
-          referenceId={event.id}
-          title={`${event.title} - Contact Organizer`}
-        />
-      )}
     </>
   );
 }

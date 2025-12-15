@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { Calendar, Clock, Users, MapPin, MessageCircle, CheckCircle, XCircle, Loader, Eye, Edit, Phone, Mail } from 'lucide-react';
+import { Calendar, Clock, Users, MapPin, CheckCircle, XCircle, Loader, Eye, Edit, Phone, Mail } from 'lucide-react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
@@ -10,7 +10,6 @@ import { useAuth } from '@/contexts/AuthContext';
 import { useStaff } from '@/contexts/StaffContext';
 import { useToast } from '@/hooks/use-toast';
 import { format, parseISO } from 'date-fns';
-import { ChatDialog } from '@/components/chat/ChatDialog';
 
 interface RoomBooking {
   id: string;
@@ -55,11 +54,10 @@ interface PartyRequest {
   };
 }
 
-export function BookingDashboard() {
+export function BookingDashboard({ initialChatId }: { initialChatId?: string }) {
   const [roomBookings, setRoomBookings] = useState<RoomBooking[]>([]);
   const [partyRequests, setPartyRequests] = useState<PartyRequest[]>([]);
   const [loading, setLoading] = useState(true);
-  const [selectedChat, setSelectedChat] = useState<{type: 'room_booking' | 'party_request', id: string, title: string} | null>(null);
   const { user } = useAuth();
   const { canManageRooms } = useStaff();
   const { toast } = useToast();
@@ -234,10 +232,6 @@ export function BookingDashboard() {
     }
   };
 
-  const handleChatOpen = (type: 'room_booking' | 'party_request', id: string, title: string) => {
-    setSelectedChat({ type, id, title });
-  };
-
   if (!canManageRooms) {
     return (
       <div className="container mx-auto px-4 py-8">
@@ -272,10 +266,9 @@ export function BookingDashboard() {
         </div>
 
         <Tabs defaultValue="room-bookings" className="space-y-6">
-          <TabsList className="grid w-full grid-cols-3">
+          <TabsList className="grid w-full grid-cols-2">
             <TabsTrigger value="room-bookings">Room Bookings ({roomBookings.length})</TabsTrigger>
             <TabsTrigger value="party-requests">Party Requests ({partyRequests.length})</TabsTrigger>
-            <TabsTrigger value="messages">Messages</TabsTrigger>
           </TabsList>
 
           <TabsContent value="room-bookings" className="space-y-4">
@@ -337,30 +330,19 @@ export function BookingDashboard() {
                     </div>
                   )}
 
-                  <div className="flex gap-2">
-                    <Select
-                      defaultValue={booking.status}
-                      onValueChange={(newStatus) => updateBookingStatus(booking.id, newStatus)}
-                    >
-                      <SelectTrigger className="w-32">
-                        <SelectValue />
-                      </SelectTrigger>
-                      <SelectContent>
-                        <SelectItem value="pending">Pending</SelectItem>
-                        <SelectItem value="confirmed">Confirmed</SelectItem>
-                        <SelectItem value="cancelled">Cancelled</SelectItem>
-                      </SelectContent>
-                    </Select>
-
-                    <Button
-                      variant="outline"
-                      size="sm"
-                      onClick={() => handleChatOpen('room_booking', booking.id, `${booking.rooms.name} - ${booking.profiles.name}`)}
-                    >
-                      <MessageCircle className="h-4 w-4 mr-2" />
-                      Chat
-                    </Button>
-                  </div>
+                  <Select
+                    defaultValue={booking.status}
+                    onValueChange={(newStatus) => updateBookingStatus(booking.id, newStatus)}
+                  >
+                    <SelectTrigger className="w-32">
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="pending">Pending</SelectItem>
+                      <SelectItem value="confirmed">Confirmed</SelectItem>
+                      <SelectItem value="cancelled">Cancelled</SelectItem>
+                    </SelectContent>
+                  </Select>
                 </CardContent>
               </Card>
             ))}
@@ -453,30 +435,19 @@ export function BookingDashboard() {
                     </div>
                   )}
 
-                  <div className="flex gap-2">
-                    <Select
-                      defaultValue={party.status}
-                      onValueChange={(newStatus) => updatePartyStatus(party.id, newStatus)}
-                    >
-                      <SelectTrigger className="w-32">
-                        <SelectValue />
-                      </SelectTrigger>
-                      <SelectContent>
-                        <SelectItem value="pending">Pending</SelectItem>
-                        <SelectItem value="approved">Approved</SelectItem>
-                        <SelectItem value="declined">Declined</SelectItem>
-                      </SelectContent>
-                    </Select>
-
-                    <Button
-                      variant="outline"
-                      size="sm"
-                      onClick={() => handleChatOpen('party_request', party.id, `${party.name}'s ${party.party_type} Party`)}
-                    >
-                      <MessageCircle className="h-4 w-4 mr-2" />
-                      Chat
-                    </Button>
-                  </div>
+                  <Select
+                    defaultValue={party.status}
+                    onValueChange={(newStatus) => updatePartyStatus(party.id, newStatus)}
+                  >
+                    <SelectTrigger className="w-32">
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="pending">Pending</SelectItem>
+                      <SelectItem value="approved">Approved</SelectItem>
+                      <SelectItem value="declined">Declined</SelectItem>
+                    </SelectContent>
+                  </Select>
                 </CardContent>
               </Card>
             ))}
@@ -491,28 +462,8 @@ export function BookingDashboard() {
               </Card>
             )}
           </TabsContent>
-
-          <TabsContent value="messages">
-            <Card>
-              <CardContent className="text-center py-12">
-                <MessageCircle className="h-12 w-12 text-muted-foreground mx-auto mb-4" />
-                <h3 className="text-lg font-semibold mb-2">Messages</h3>
-                <p className="text-muted-foreground">Message management coming soon.</p>
-              </CardContent>
-            </Card>
-          </TabsContent>
         </Tabs>
       </div>
-
-      {selectedChat && (
-        <ChatDialog
-          isOpen={!!selectedChat}
-          onClose={() => setSelectedChat(null)}
-          conversationType={selectedChat.type}
-          referenceId={selectedChat.id}
-          title={selectedChat.title}
-        />
-      )}
     </>
   );
 }

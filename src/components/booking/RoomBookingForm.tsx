@@ -15,7 +15,6 @@ import { useAuth } from '@/contexts/AuthContext';
 import { useToast } from '@/hooks/use-toast';
 import { format } from 'date-fns';
 import { cn } from '@/lib/utils';
-import { ChatDialog } from '@/components/chat/ChatDialog';
 import { buildTimeSlots, getBusinessHours, isPhoneValid } from './booking-validators';
 
 interface Room {
@@ -57,7 +56,6 @@ export function RoomBookingForm({ room, onBack }: RoomBookingFormProps) {
   const [contactPhone, setContactPhone] = useState('');
   const [contactEmail, setContactEmail] = useState('');
   const [isSubmitting, setIsSubmitting] = useState(false);
-  const [showChat, setShowChat] = useState(false);
   const [availableSlots, setAvailableSlots] = useState<AvailableSlot[]>([]);
   const [bookedSlots, setBookedSlots] = useState<{start_time: string, end_time: string}[]>([]);
   const [conflictError, setConflictError] = useState<string | null>(null);
@@ -415,15 +413,6 @@ const calculateEndTime = (start: string, hours: number) => {
                   {isSubmitting ? 'Processing...' : 'Confirm Booking'}
                 </Button>
 
-                <Button
-                  variant="outline"
-                  onClick={() => setShowChat(true)}
-                  className="w-full"
-                  disabled={!user}
-                >
-                  <MessageCircle className="h-4 w-4 mr-2" />
-                  Chat with Booking Team
-                </Button>
               </form>
             </CardContent>
           </Card>
@@ -496,16 +485,6 @@ const calculateEndTime = (start: string, hours: number) => {
           </div>
         </div>
       </div>
-
-      {showChat && (
-        <ChatDialog
-          isOpen={showChat}
-          onClose={() => setShowChat(false)}
-          conversationType="room_booking"
-          referenceId={room.id}
-          title={`${room.name} - Booking Support`}
-        />
-      )}
 
       {bookingId && (
         <CheckoutDialog

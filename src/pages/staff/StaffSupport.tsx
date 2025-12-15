@@ -7,6 +7,7 @@ import { MessageCircle, Send } from 'lucide-react';
 import { supabase } from '@/integrations/supabase/client';
 import { useToast } from '@/hooks/use-toast';
 import { useAuth } from '@/contexts/AuthContext';
+import { useSearchParams } from 'react-router-dom';
 
 interface Conversation {
   id: string;
@@ -34,10 +35,18 @@ export default function StaffSupport() {
   const [newMessage, setNewMessage] = useState('');
   const { user } = useAuth();
   const { toast } = useToast();
+  const [searchParams, setSearchParams] = useSearchParams();
 
   useEffect(() => {
     fetchConversations();
   }, []);
+
+  useEffect(() => {
+    const convId = searchParams.get('conversationId');
+    if (convId) {
+      setSelectedConversation(convId);
+    }
+  }, [searchParams]);
 
   useEffect(() => {
     if (selectedConversation) {
@@ -164,7 +173,10 @@ export default function StaffSupport() {
                 key={conv.id}
                 variant={selectedConversation === conv.id ? "default" : "outline"}
                 className="w-full justify-start"
-                onClick={() => setSelectedConversation(conv.id)}
+                onClick={() => {
+                  setSelectedConversation(conv.id);
+                  setSearchParams({ conversationId: conv.id });
+                }}
               >
                 <MessageCircle className="h-4 w-4 mr-2" />
                 <div className="flex-1 text-left">

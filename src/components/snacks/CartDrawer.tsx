@@ -35,7 +35,7 @@ export function CartDrawer({ openOnLoad = false }: CartDrawerProps) {
           )}
         </Button>
       </SheetTrigger>
-      <SheetContent className="w-full sm:max-w-lg">
+      <SheetContent className="w-full sm:max-w-lg flex flex-col">
         <div className="flex items-center gap-2 mb-3">
           <SheetClose asChild>
             <Button variant="ghost" size="icon" aria-label="Back to snacks">
@@ -47,15 +47,15 @@ export function CartDrawer({ openOnLoad = false }: CartDrawerProps) {
         <SheetHeader>
           <SheetTitle>Your Cart ({itemCount} items)</SheetTitle>
         </SheetHeader>
-        
+
         {cart.items.length === 0 ? (
-          <div className="flex flex-col items-center justify-center h-full text-muted-foreground">
+          <div className="flex flex-col items-center justify-center flex-1 text-muted-foreground">
             <ShoppingCart className="h-16 w-16 mb-4" />
             <p>Your cart is empty</p>
           </div>
         ) : (
-          <div className="flex flex-col h-full mt-6">
-            <div className="flex-1 overflow-y-auto space-y-4 pb-4">
+          <div className="flex flex-col flex-1 mt-6 min-h-0">
+            <div className="flex-1 min-h-0 overflow-y-auto space-y-4 pb-4">
               {cart.items.map((item) => (
                 <div key={item.id} className="flex gap-4 p-4 bg-card rounded-lg border">
                   {item.image_url && (
@@ -105,7 +105,7 @@ export function CartDrawer({ openOnLoad = false }: CartDrawerProps) {
               ))}
             </div>
             
-            <div className="sticky bottom-0 bg-background border-t pt-4 pb-6 space-y-2 z-50">
+            <div className="sticky bottom-0 bg-background border-t pt-4 pb-[calc(env(safe-area-inset-bottom)+16px)] space-y-2 z-50">
               <div className="flex justify-between text-sm">
                 <span>Subtotal</span>
                 <span>{formatPriceAEDUSD(cart.subtotal)}</span>

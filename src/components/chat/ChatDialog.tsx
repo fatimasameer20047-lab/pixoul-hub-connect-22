@@ -9,6 +9,7 @@ import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/contexts/AuthContext';
 import { useToast } from '@/hooks/use-toast';
 import { format } from 'date-fns';
+import { useStaff } from '@/contexts/StaffContext';
 
 interface ChatMessage {
   id: string;
@@ -25,25 +26,31 @@ interface ChatDialogProps {
   conversationType: 'room_booking' | 'party_request' | 'event_organizer' | 'support';
   referenceId: string;
   title: string;
+  conversationId?: string;
 }
 
-export function ChatDialog({ isOpen, onClose, conversationType, referenceId, title }: ChatDialogProps) {
+export function ChatDialog({ isOpen, onClose, conversationType, referenceId, title, conversationId: incomingConversationId }: ChatDialogProps) {
   const [messages, setMessages] = useState<ChatMessage[]>([]);
   const [newMessage, setNewMessage] = useState('');
   const [conversationId, setConversationId] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
   const [sending, setSending] = useState(false);
   const { user } = useAuth();
+  const { isStaff: hasStaffAccess } = useStaff();
   const { toast } = useToast();
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const isDemoMode = import.meta.env.DEMO_MODE === 'true';
-  const isStaff = isDemoMode;
+  const isStaff = isDemoMode || hasStaffAccess;
 
   useEffect(() => {
+    let cleanup: (() => void) | undefined;
     if (isOpen && user) {
-      initializeChat();
+      cleanup = initializeChat();
     }
-  }, [isOpen, user, referenceId]);
+    return () => {
+      cleanup?.();
+    };
+  }, [isOpen, user, referenceId, conversationType, isStaff]);
 
   useEffect(() => {
     scrollToBottom();
@@ -53,42 +60,54 @@ export function ChatDialog({ isOpen, onClose, conversationType, referenceId, tit
     messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
   };
 
-  const initializeChat = async () => {
-    try {
-      // First, try to find existing conversation
-      const { data: existingConv, error: searchError } = await supabase
-        .from('chat_conversations')
-        .select('id')
-        .eq('reference_id', referenceId)
-        .eq('conversation_type', conversationType)
-        .maybeSingle();
+  const initializeChat = () => {
+    let channel: ReturnType<typeof supabase.channel> | null = null;
+    (async () => {
+      try {
+        let convId = incomingConversationId || null;
 
-      let convId = existingConv?.id;
+        if (!convId) {
+          const { data: existingConv } = await supabase
+            .from('chat_conversations')
+            .select('id')
+            .eq('reference_id', referenceId)
+            .eq('conversation_type', conversationType)
+            .maybeSingle();
 
-      // If no conversation exists, create one
-      if (!convId) {
-        const { data: newConv, error: createError } = await supabase
-          .from('chat_conversations')
-          .insert({
-            user_id: user!.id,
-            conversation_type: conversationType,
-            reference_id: referenceId,
-            title: title,
-            status: 'active',
-          })
-          .select('id')
-          .single();
+          convId = existingConv?.id || null;
+        }
 
-        if (createError) throw createError;
-        convId = newConv.id;
-      }
+        if (!convId && !isStaff) {
+          const { data: newConv, error: createError } = await supabase
+            .from('chat_conversations')
+            .insert({
+              user_id: user!.id,
+              conversation_type: conversationType,
+              reference_id: referenceId,
+              title: title,
+              status: 'active',
+            })
+            .select('id')
+            .single();
 
-      if (convId) {
+          if (createError) throw createError;
+          convId = newConv.id;
+        }
+
+        if (!convId) {
+          toast({
+            title: 'No conversation found',
+            description: 'A conversation has not been started for this booking yet.',
+            variant: 'destructive',
+          });
+          return;
+        }
+
         setConversationId(convId);
         await fetchMessages(convId);
-        
-        // Set up real-time subscription for new messages
-        const channel = supabase
+        await markMessagesRead(convId);
+
+        channel = supabase
           .channel(`chat-${convId}`)
           .on(
             'postgres_changes',
@@ -99,24 +118,30 @@ export function ChatDialog({ isOpen, onClose, conversationType, referenceId, tit
               filter: `conversation_id=eq.${convId}`,
             },
             (payload) => {
-              setMessages((prev) => [...prev, payload.new as ChatMessage]);
+              const newMsg = payload.new as ChatMessage;
+              setMessages((prev) => [...prev, newMsg]);
+              if (newMsg.sender_id !== user?.id) {
+                markMessagesRead(convId);
+              }
             }
           )
           .subscribe();
-
-        return () => {
-          supabase.removeChannel(channel);
-        };
+      } catch (error: any) {
+        toast({
+          title: 'Error loading chat',
+          description: error.message,
+          variant: 'destructive',
+        });
+      } finally {
+        setLoading(false);
       }
-    } catch (error: any) {
-      toast({
-        title: "Error loading chat",
-        description: error.message,
-        variant: "destructive",
-      });
-    } finally {
-      setLoading(false);
-    }
+    })();
+
+    return () => {
+      if (channel) {
+        supabase.removeChannel(channel);
+      }
+    };
   };
 
   const fetchMessages = async (convId: string) => {
@@ -135,6 +160,16 @@ export function ChatDialog({ isOpen, onClose, conversationType, referenceId, tit
     } else {
       setMessages(data || []);
     }
+  };
+
+  const markMessagesRead = async (convId: string) => {
+    if (!user) return;
+    await supabase
+      .from('chat_messages')
+      .update({ is_read: true })
+      .eq('conversation_id', convId)
+      .neq('sender_id', user.id)
+      .eq('is_read', false);
   };
 
   const sendMessage = async (e: React.FormEvent) => {

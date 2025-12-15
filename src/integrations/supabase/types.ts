@@ -441,6 +441,56 @@ export type Database = {
         }
         Relationships: []
       }
+      notifications: {
+        Row: {
+          body: string | null
+          created_at: string
+          id: string
+          is_read: boolean
+          link_path: string | null
+          meta: Json | null
+          read_at: string | null
+          recipient_role: string
+          recipient_user_id: string | null
+          title: string
+          type: string
+        }
+        Insert: {
+          body?: string | null
+          created_at?: string
+          id?: string
+          is_read?: boolean
+          link_path?: string | null
+          meta?: Json | null
+          read_at?: string | null
+          recipient_role: string
+          recipient_user_id?: string | null
+          title: string
+          type: string
+        }
+        Update: {
+          body?: string | null
+          created_at?: string
+          id?: string
+          is_read?: boolean
+          link_path?: string | null
+          meta?: Json | null
+          read_at?: string | null
+          recipient_role?: string
+          recipient_user_id?: string | null
+          title?: string
+          type?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "notifications_recipient_user_id_fkey"
+            columns: ["recipient_user_id"]
+            isOneToOne: false
+            referencedRelation: "users"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       order_items: {
         Row: {
           created_at: string | null

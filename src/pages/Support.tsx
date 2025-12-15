@@ -26,6 +26,27 @@ export default function Support() {
   const { toast } = useToast();
 
   useEffect(() => {
+    const previousHtmlOverflow = document.documentElement.style.overflow;
+    const previousBodyOverflow = document.body.style.overflow;
+    document.documentElement.style.overflow = 'hidden';
+    document.body.style.overflow = 'hidden';
+    return () => {
+      document.documentElement.style.overflow = previousHtmlOverflow;
+      document.body.style.overflow = previousBodyOverflow;
+    };
+  }, []);
+
+  const markMessagesRead = async (convId: string) => {
+    if (!user) return;
+    await supabase
+      .from('chat_messages')
+      .update({ is_read: true })
+      .eq('conversation_id', convId)
+      .neq('sender_id', user.id)
+      .eq('is_read', false);
+  };
+
+  useEffect(() => {
     if (user) {
       initializeConversation();
     }
@@ -34,6 +55,7 @@ export default function Support() {
   useEffect(() => {
     if (!conversationId) return;
     fetchMessages();
+    markMessagesRead(conversationId);
 
     const channel = supabase
       .channel(`support-messages-${conversationId}`)
@@ -53,6 +75,9 @@ export default function Support() {
             return next;
           });
           setPendingId(null);
+          if (msg.is_staff) {
+            markMessagesRead(conversationId);
+          }
         }
         if (payload.eventType === 'UPDATE') {
           const msg = payload.new as Message;
@@ -152,6 +177,7 @@ export default function Support() {
       setMessages(data || []);
       // Make sure we start at bottom on initial load
       setTimeout(() => scrollToBottom(false), 0);
+      await markMessagesRead(conversationId);
     }
   };
 
@@ -215,7 +241,7 @@ export default function Support() {
   }
 
   return (
-    <div className="flex flex-col h-[100dvh] bg-background overflow-x-hidden">
+    <div className="flex flex-col h-[100dvh] min-h-[100vh] bg-background overflow-hidden">
       {/* MOBILE: Full-screen chat layout */}
       <div className="px-4 py-2 border-b md:hidden flex items-center gap-2 bg-card/80 backdrop-blur supports-[backdrop-filter]:bg-card/70">
         <MessageCircle className="h-5 w-5" />
@@ -225,7 +251,7 @@ export default function Support() {
       {/* Messages scroll area; padded at bottom for composer + bottom nav */}
       <div
         ref={listRef}
-        className="flex-1 min-h-0 overflow-y-auto px-4 pt-4 space-y-3 bg-muted/20 pb-[calc(64px+env(safe-area-inset-bottom))]"
+        className="flex-1 min-h-0 overflow-y-auto px-4 pt-4 space-y-3 bg-muted/20 pb-[calc(96px+env(safe-area-inset-bottom))]"
         onScroll={() => {
           if (atBottom() && newCount > 0) setNewCount(0);
         }}
@@ -279,7 +305,7 @@ export default function Support() {
           e.preventDefault();
           sendMessage();
         }}
-        className="sticky bottom-0 inset-x-0 z-10 bg-background/95 backdrop-blur border-t px-3 pb-[max(12px,env(safe-area-inset-bottom))] pt-2"
+        className="sticky bottom-12 inset-x-0 z-10 bg-background/95 backdrop-blur border-t px-3 pb-[calc(env(safe-area-inset-bottom)+12px)] pt-2"
       >
         <div className="mx-auto max-w-screen-sm w-full flex items-center gap-2">
           <Input

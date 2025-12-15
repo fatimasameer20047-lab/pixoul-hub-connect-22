@@ -1,13 +1,11 @@
 import React, { useState, useEffect } from 'react';
-import { Calendar, Clock, Users, CheckCircle, XCircle, Loader, MessageCircle } from 'lucide-react';
+import { Calendar, Clock, Users, CheckCircle, XCircle, Loader } from 'lucide-react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
-import { Button } from '@/components/ui/button';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/contexts/AuthContext';
 import { useToast } from '@/hooks/use-toast';
 import { format, parseISO } from 'date-fns';
-import { ChatDialog } from '@/components/chat/ChatDialog';
 
 interface Registration {
   id: string;
@@ -22,16 +20,18 @@ interface Registration {
     title: string;
     event_date: string;
     start_time: string;
+    start_date?: string | null;
+    end_date?: string | null;
     type: string;
     category?: string;
-    price: number;
+    price?: number | null;
+    contact_phone?: string | null;
   };
 }
 
 export function MyRegistrations() {
   const [registrations, setRegistrations] = useState<Registration[]>([]);
   const [loading, setLoading] = useState(true);
-  const [selectedChat, setSelectedChat] = useState<{id: string, title: string} | null>(null);
   const { user } = useAuth();
   const { toast } = useToast();
 
@@ -52,9 +52,12 @@ export function MyRegistrations() {
             title,
             event_date,
             start_time,
+            start_date,
+            end_date,
             type,
             category,
-            price
+            price,
+            contact_phone
           )
         `)
         .eq('user_id', user?.id || 'guest')
@@ -101,10 +104,6 @@ export function MyRegistrations() {
       default:
         return 'outline';
     }
-  };
-
-  const handleChatOpen = (eventId: string, eventTitle: string) => {
-    setSelectedChat({ id: eventId, title: eventTitle });
   };
 
   if (loading) {
@@ -156,14 +155,36 @@ export function MyRegistrations() {
             </CardHeader>
             <CardContent className="space-y-4">
               <div className="grid grid-cols-1 md:grid-cols-3 gap-4 text-sm">
-                <div className="flex items-center gap-2">
-                  <Calendar className="h-4 w-4" />
-                  {format(parseISO(registration.events_programs.event_date), 'MMM dd, yyyy')}
-                </div>
-                <div className="flex items-center gap-2">
-                  <Clock className="h-4 w-4" />
-                  {registration.events_programs.start_time}
-                </div>
+                {registration.events_programs.type === 'event' && (
+                  <>
+                    <div className="flex items-center gap-2">
+                      <Calendar className="h-4 w-4" />
+                      {registration.events_programs.event_date
+                        ? format(parseISO(registration.events_programs.event_date), 'MMM dd, yyyy')
+                        : 'TBD'}
+                    </div>
+                    <div className="flex items-center gap-2">
+                      <Clock className="h-4 w-4" />
+                      {registration.events_programs.start_time || 'TBD'}
+                    </div>
+                  </>
+                )}
+                {registration.events_programs.type === 'program' && (
+                  <>
+                    <div className="flex items-center gap-2">
+                      <Calendar className="h-4 w-4" />
+                      {registration.events_programs.start_date
+                        ? format(parseISO(registration.events_programs.start_date), 'MMM dd, yyyy')
+                        : 'TBD'}
+                    </div>
+                    <div className="flex items-center gap-2">
+                      <Clock className="h-4 w-4" />
+                      {registration.events_programs.end_date
+                        ? format(parseISO(registration.events_programs.end_date), 'MMM dd, yyyy')
+                        : 'TBD'}
+                    </div>
+                  </>
+                )}
                 <div className="flex items-center gap-2">
                   <Users className="h-4 w-4" />
                   {registration.party_size} {registration.party_size === 1 ? 'person' : 'people'}
@@ -177,9 +198,9 @@ export function MyRegistrations() {
                 <div>
                   <strong>Email:</strong> {registration.participant_email}
                 </div>
-                {registration.events_programs.price > 0 && (
+                {registration.events_programs.type === 'program' && (registration.events_programs.price || 0) > 0 && (
                   <div>
-                    <strong>Total Cost:</strong> ${(registration.events_programs.price * registration.party_size).toFixed(2)}
+                    <strong>Total Cost:</strong> ${((registration.events_programs.price || 0) * registration.party_size).toFixed(2)}
                   </div>
                 )}
                 {registration.notes && (
@@ -187,32 +208,16 @@ export function MyRegistrations() {
                     <strong>Notes:</strong> {registration.notes}
                   </div>
                 )}
-              </div>
-
-              <div className="flex gap-2">
-                <Button
-                  variant="outline"
-                  size="sm"
-                  onClick={() => handleChatOpen(registration.events_programs.id, registration.events_programs.title)}
-                >
-                  <MessageCircle className="h-4 w-4 mr-2" />
-                  Contact Organizer
-                </Button>
+                {registration.events_programs.type === 'program' && registration.events_programs.contact_phone && (
+                  <div>
+                    <strong>Contact:</strong> {registration.events_programs.contact_phone}
+                  </div>
+                )}
               </div>
             </CardContent>
           </Card>
         ))}
       </div>
-
-      {selectedChat && (
-        <ChatDialog
-          isOpen={!!selectedChat}
-          onClose={() => setSelectedChat(null)}
-          conversationType="event_organizer"
-          referenceId={selectedChat.id}
-          title={`${selectedChat.title} - Contact Organizer`}
-        />
-      )}
     </>
   );
 }

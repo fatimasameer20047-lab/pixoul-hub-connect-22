@@ -39,12 +39,19 @@ export default function Booking() {
   // MOBILE: Quick view sheet for room details/amenities
   const [quickViewOpen, setQuickViewOpen] = useState(false);
   const [quickViewRoom, setQuickViewRoom] = useState<Room | null>(null);
+  const [partyPricing, setPartyPricing] = useState({
+    title: 'Birthday Bash pricing',
+    weekday_text: 'Weekdays (Mon-Thu): AED 199 / kid',
+    weekend_text: 'Weekends (Fri-Sun): AED 235 / kid',
+  });
+  const [partyPricingLoading, setPartyPricingLoading] = useState(false);
   const { user } = useAuth();
   const navigate = useNavigate();
   const isDemoMode = import.meta.env.DEMO_MODE === 'true';
   const { toast } = useToast();
   const [searchParams, setSearchParams] = useSearchParams();
   const tabParam = searchParams.get('tab');
+  const chatParam = searchParams.get('chat');
   const allowedTabs = useMemo(
     () => ['rooms', 'packages', 'parties', 'my-bookings', ...(isDemoMode ? ['dashboard'] : [])],
     [isDemoMode]
@@ -65,6 +72,32 @@ export default function Booking() {
   useEffect(() => {
     fetchRooms();
   }, []);
+
+  useEffect(() => {
+    const loadPartyPricing = async () => {
+      setPartyPricingLoading(true);
+      const { data } = await supabase
+        .from('party_pricing_content')
+        .select('*')
+        .eq('id', 'default')
+        .maybeSingle();
+      if (data) {
+        setPartyPricing({
+          title: data.title || 'Birthday Bash pricing',
+          weekday_text: data.weekday_text || 'Weekdays (Mon-Thu): AED 199 / kid',
+          weekend_text: data.weekend_text || 'Weekends (Fri-Sun): AED 235 / kid',
+        });
+      }
+      setPartyPricingLoading(false);
+    };
+    loadPartyPricing();
+  }, []);
+
+  useEffect(() => {
+    if (chatParam) {
+      navigate(`/booking/chat/${chatParam}`, { replace: true });
+    }
+  }, [chatParam, navigate]);
 
   useEffect(() => {
     const nextTab = searchParams.get('tab');
@@ -167,22 +200,47 @@ export default function Booking() {
               Reserve gaming rooms or organize parties at Pixoul Hub
             </p>
           </div>
+          <Button
+            variant="outline"
+            onClick={() => {
+              if (!user) {
+                toast({ title: 'Please sign in', description: 'Sign in to chat with us', variant: 'destructive' });
+                navigate('/auth');
+                return;
+              }
+              navigate('/support');
+            }}
+            className="gap-2"
+          >
+            <MessageCircle className="h-4 w-4" />
+            Chat with us
+          </Button>
         </div>
       </div>
 
         <Tabs value={activeTab} onValueChange={handleTabChange} className="space-y-6">
         <TabsList
-          className="grid w-full"
+          className="w-full flex flex-wrap gap-2 justify-center md:grid md:gap-0"
           style={{ gridTemplateColumns: `repeat(${isDemoMode ? 5 : 4}, minmax(0, 1fr))` }}
         >
-          <TabsTrigger value="rooms">Gaming Rooms</TabsTrigger>
-          <TabsTrigger value="parties">Organize Party</TabsTrigger>
-          <TabsTrigger value="packages">Packages &amp; Offers</TabsTrigger>
-          <TabsTrigger value="my-bookings">My Bookings</TabsTrigger>
+          <TabsTrigger value="rooms" className="px-3 py-2 text-xs sm:text-sm sm:px-4">Gaming Rooms</TabsTrigger>
+          <TabsTrigger value="parties" className="px-3 py-2 text-xs sm:text-sm sm:px-4">Organize Party</TabsTrigger>
+          <TabsTrigger value="packages" className="px-3 py-2 text-xs sm:text-sm sm:px-4">Packages &amp; Offers</TabsTrigger>
+          <TabsTrigger value="my-bookings" className="px-3 py-2 text-xs sm:text-sm sm:px-4 hidden md:inline-flex">My Bookings</TabsTrigger>
           {isDemoMode && (
-            <TabsTrigger value="dashboard">Staff Dashboard</TabsTrigger>
+            <TabsTrigger value="dashboard" className="px-3 py-2 text-xs sm:text-sm sm:px-4">Staff Dashboard</TabsTrigger>
           )}
         </TabsList>
+        <div className="md:hidden flex justify-center">
+          <Button
+            variant={activeTab === 'my-bookings' ? 'default' : 'outline'}
+            size="sm"
+            className="w-full max-w-xs mt-2"
+            onClick={() => handleTabChange('my-bookings')}
+          >
+            My Bookings
+          </Button>
+        </div>
 
         <TabsContent value="rooms" className="space-y-6">
           {/* MOBILE: 2-column grid, square thumbnails, compact content */}
@@ -292,9 +350,12 @@ export default function Booking() {
                 Let us help you create the perfect gaming party experience
               </p>
               <div className="mt-3 rounded-lg border border-dashed border-border/70 bg-muted/40 p-3 space-y-1">
-                <div className="text-sm font-semibold">Birthday Bash pricing</div>
-                <p className="text-sm text-muted-foreground">Weekdays (Mon–Thu): AED 199 / kid</p>
-                <p className="text-sm text-muted-foreground">Weekends (Fri–Sun): AED 235 / kid</p>
+                <div className="text-sm font-semibold">{partyPricing.title}</div>
+                <p className="text-sm text-muted-foreground">{partyPricing.weekday_text}</p>
+                <p className="text-sm text-muted-foreground">{partyPricing.weekend_text}</p>
+                {partyPricingLoading && (
+                  <p className="text-xs text-muted-foreground">Refreshing pricing...</p>
+                )}
               </div>
             </CardHeader>
             <CardContent className="space-y-6">

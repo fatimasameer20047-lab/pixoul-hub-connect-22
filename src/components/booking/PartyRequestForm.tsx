@@ -13,7 +13,6 @@ import { useAuth } from '@/contexts/AuthContext';
 import { useToast } from '@/hooks/use-toast';
 import { format } from 'date-fns';
 import { cn } from '@/lib/utils';
-import { ChatDialog } from '@/components/chat/ChatDialog';
 
 interface PartyRequestFormProps {
   onBack: () => void;
@@ -40,7 +39,6 @@ export function PartyRequestForm({ onBack }: PartyRequestFormProps) {
   const [startTime, setStartTime] = useState('');
   const [endTime, setEndTime] = useState('');
   const [isSubmitting, setIsSubmitting] = useState(false);
-  const [showChat, setShowChat] = useState(false);
   const { user } = useAuth();
   const { toast } = useToast();
 
@@ -333,28 +331,10 @@ export function PartyRequestForm({ onBack }: PartyRequestFormProps) {
               {isSubmitting ? 'Submitting Request...' : 'Submit Party Request'}
             </Button>
 
-            <Button
-              variant="outline"
-              onClick={() => setShowChat(true)}
-              className="w-full"
-              disabled={!user}
-            >
-              <MessageCircle className="h-4 w-4 mr-2" />
-              Chat with Booking Team
-            </Button>
           </form>
         </CardContent>
       </Card>
 
-      {showChat && (
-        <ChatDialog
-          isOpen={showChat}
-          onClose={() => setShowChat(false)}
-          conversationType="party_request"
-          referenceId="new-party-request"
-          title="Party Planning Support"
-        />
-      )}
     </div>
   );
 }

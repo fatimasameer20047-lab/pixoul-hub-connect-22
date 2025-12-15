@@ -22,6 +22,7 @@ import Guides from "./pages/Guides";
 import Snacks from "./pages/Snacks";
 import Gallery from "./pages/Gallery";
 import Support from "./pages/Support";
+import BookingChat from "./pages/BookingChat";
 import Announcements from "./pages/Announcements";
 import NotFound from "./pages/NotFound";
 import StaffDashboard from "./pages/staff/StaffDashboard";
@@ -35,6 +36,7 @@ import StaffGuides from "./pages/staff/StaffGuides";
 import StaffAnnouncements from "./pages/staff/StaffAnnouncements";
 import StaffSupport from "./pages/staff/StaffSupport";
 import StaffPixoulPosts from "./pages/staff/StaffPixoulPosts";
+import StaffOrders from "./pages/staff/StaffOrders";
 import FromPixoul from "./pages/FromPixoul";
 import PartyGallery from "./pages/PartyGallery";
 import Checkout from "./pages/Checkout";
@@ -87,6 +89,30 @@ const StaffRoute = ({ children }: { children: React.ReactNode }) => {
     return <Navigate to="/" replace />;
   }
   
+  return <>{children}</>;
+};
+
+const PixoulStaffRoute = ({ children }: { children: React.ReactNode }) => {
+  const { user, isLoading } = useAuth();
+  const { isStaff } = useStaff();
+  const isPixoulStaff = user?.email === 'pixoulgaming@staffportal.com';
+
+  if (isLoading) {
+    return (
+      <div className="min-h-screen flex items-center justify-center">
+        <Loader className="h-8 w-8 animate-spin" />
+      </div>
+    );
+  }
+
+  if (!user) {
+    return <Navigate to="/auth" replace />;
+  }
+
+  if (!isStaff || !isPixoulStaff) {
+    return <Navigate to="/staff" replace />;
+  }
+
   return <>{children}</>;
 };
 
@@ -145,7 +171,7 @@ const AppLayout = ({ children }: { children: React.ReactNode }) => {
                 </Badge>
               )}
               {/* MOBILE: Bell with badge visible on all dashboards */}
-              <NotificationBell />
+              <NotificationBell customerIdOverride={user?.id} />
             </div>
               </div>
             </div>
@@ -164,7 +190,12 @@ const AppLayout = ({ children }: { children: React.ReactNode }) => {
 
 const StaffLayout = ({ children }: { children: React.ReactNode }) => {
   const { user } = useAuth();
-  const { staffRole } = useStaff();
+  const { staffRole, canManageSupport, canManageRooms, canManageSnacks } = useStaff();
+  const resolvedStaffRole =
+    canManageSupport ? 'support' :
+    canManageRooms ? 'booking' :
+    canManageSnacks ? 'snacks' :
+    staffRole ? staffRole : null;
   
   return (
     <SidebarProvider>
@@ -188,7 +219,7 @@ const StaffLayout = ({ children }: { children: React.ReactNode }) => {
                 Staff Portal
               </Badge>
               {/* MOBILE: Bell with badge visible on staff dashboard too */}
-              <NotificationBell />
+              <NotificationBell staffRoleOverride={resolvedStaffRole || undefined} />
             </div>
           </header>
           {/* Add top padding to offset fixed header height (h-12) */}
@@ -219,6 +250,13 @@ const AppRoutes = () => {
         <GuestRoute>
           <AppLayout>
             <Booking />
+          </AppLayout>
+        </GuestRoute>
+      } />
+      <Route path="/booking/chat/:conversationId" element={
+        <GuestRoute>
+          <AppLayout>
+            <BookingChat />
           </AppLayout>
         </GuestRoute>
       } />
@@ -339,6 +377,20 @@ const AppRoutes = () => {
           </StaffLayout>
         </StaffRoute>
       } />
+      <Route path="/staff/orders" element={
+        <StaffRoute>
+          <StaffLayout>
+            <StaffOrders />
+          </StaffLayout>
+        </StaffRoute>
+      } />
+      <Route path="/staff/orders/:orderId" element={
+        <StaffRoute>
+          <StaffLayout>
+            <StaffOrders />
+          </StaffLayout>
+        </StaffRoute>
+      } />
       <Route path="/staff/gallery" element={
         <StaffRoute>
           <StaffLayout>
@@ -368,11 +420,11 @@ const AppRoutes = () => {
         </StaffRoute>
       } />
       <Route path="/staff/pixoul-posts" element={
-        <StaffRoute>
+        <PixoulStaffRoute>
           <StaffLayout>
             <StaffPixoulPosts />
           </StaffLayout>
-        </StaffRoute>
+        </PixoulStaffRoute>
       } />
 
       <Route path="*" element={<NotFound />} />
@@ -399,4 +451,3 @@ const App = () => (
 );
 
 export default App;
-

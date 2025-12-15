@@ -1,4 +1,4 @@
-import { Home, Calendar, BookOpen, Coffee, Image, HelpCircle, Bell, Settings, LogOut, Users, Megaphone } from "lucide-react";
+import { Home, Calendar, BookOpen, Coffee, Image, HelpCircle, Bell, Settings, LogOut, Users, Megaphone, UtensilsCrossed } from "lucide-react";
 import { NavLink, useNavigate } from "react-router-dom";
 import {
   Sidebar,
@@ -22,6 +22,8 @@ export function StaffSidebar() {
   const { isStaff, isAdmin, canManageRooms, canManageEvents, canManageSnacks, canModerateGallery, canManageGuides, canManageSupport, canManageStaff } = useStaff();
   const { signOut } = useAuth();
   const navigate = useNavigate();
+  const { user } = useAuth();
+  const isPixoulStaff = user?.email === 'pixoulgaming@staffportal.com';
 
   const handleLogout = async () => {
     await signOut();
@@ -31,10 +33,11 @@ export function StaffSidebar() {
   const staffItems = [
     { title: "Dashboard", url: "/staff", icon: Home, show: true },
     { title: "Home", url: "/staff/home", icon: Users, show: !isAdmin },
-    { title: "Pixoul Posts", url: "/staff/pixoul-posts", icon: Megaphone, show: isStaff },
     { title: "Staff Management", url: "/staff/management", icon: Settings, show: canManageStaff },
     { title: "Room Management", url: "/staff/rooms", icon: Settings, show: canManageRooms },
     { title: "Events Management", url: "/staff/events", icon: Calendar, show: canManageEvents },
+    { title: "Pixoul Posts", url: "/staff/pixoul-posts", icon: Megaphone, show: isPixoulStaff },
+    { title: "Orders", url: "/staff/orders", icon: UtensilsCrossed, show: canManageSnacks },
     { title: "Snacks Management", url: "/staff/snacks", icon: Coffee, show: canManageSnacks },
     { title: "Gallery Moderation", url: "/staff/gallery", icon: Image, show: canModerateGallery },
     { title: "Guides Management", url: "/staff/guides", icon: BookOpen, show: canManageGuides },
