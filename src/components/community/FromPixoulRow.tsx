@@ -16,21 +16,7 @@ interface PixoulPost {
   created_at: string;
   pinned: boolean;
   published: boolean;
-  event_date?: string;
-  start_time?: string;
   channel: PixoulChannel;
-}
-
-interface EventProgram {
-  id: string;
-  title: string;
-  description: string;
-  type: 'event' | 'program';
-  image_url?: string;
-  event_date: string;
-  start_time: string;
-  created_at: string;
-  is_active: boolean;
 }
 
 export function FromPixoulRow() {
@@ -55,38 +41,12 @@ export function FromPixoulRow() {
 
       if (postsError) throw postsError;
 
-      // Fetch active events/programs
-      const { data: eventsData, error: eventsError } = await supabase
-        .from('events_programs')
-        .select('*')
-        .eq('is_active', true)
-        .gte('event_date', new Date().toISOString().split('T')[0])
-        .order('event_date', { ascending: true })
-        .limit(4);
-
-      if (eventsError) throw eventsError;
-
-      // Convert events to PixoulPost format
-      const eventPosts: PixoulPost[] = (eventsData || []).map(event => ({
-        id: event.id,
-        type: event.type as 'event' | 'program',
-        title: event.title,
-        caption: event.description,
-        images: event.image_url ? [event.image_url] : [],
-        created_at: event.created_at,
-        pinned: false,
-        published: true,
-        event_date: event.event_date,
-        start_time: event.start_time,
-        channel: 'from_pixoul',
-      }));
-
       // Combine and sort: pinned first, then by date desc
       const normalizedPosts = ((postsData as PixoulPost[] | null) || []).map(post => ({
         ...post,
         channel: post.channel ?? 'from_pixoul',
       }));
-      const combined = [...normalizedPosts, ...eventPosts]
+      const combined = [...normalizedPosts]
         .sort((a, b) => {
           const ap = a.pinned ? 1 : 0;
           const bp = b.pinned ? 1 : 0;
