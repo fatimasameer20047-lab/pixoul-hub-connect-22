@@ -35,13 +35,14 @@ export function StaffSidebar() {
     { title: "Home", url: "/staff/home", icon: Users, show: !isAdmin },
     { title: "Staff Management", url: "/staff/management", icon: Settings, show: canManageStaff },
     { title: "Room Management", url: "/staff/rooms", icon: Settings, show: canManageRooms },
+    { title: "Bookings", url: "/staff/bookings", icon: Calendar, show: canManageRooms },
     { title: "Events Management", url: "/staff/events", icon: Calendar, show: canManageEvents },
     { title: "Pixoul Posts", url: "/staff/pixoul-posts", icon: Megaphone, show: isPixoulStaff },
     { title: "Orders", url: "/staff/orders", icon: UtensilsCrossed, show: canManageSnacks },
     { title: "Snacks Management", url: "/staff/snacks", icon: Coffee, show: canManageSnacks },
     { title: "Gallery Moderation", url: "/staff/gallery", icon: Image, show: canModerateGallery },
     { title: "Guides Management", url: "/staff/guides", icon: BookOpen, show: canManageGuides },
-    { title: "Announcements", url: "/staff/announcements", icon: Bell, show: canManageGuides },
+    { title: "Announcements", url: "/staff/announcements", icon: Bell, show: user?.email?.toLowerCase() === 'pixoulannouncements@staffportal.com' },
     { title: "Support Management", url: "/staff/support", icon: HelpCircle, show: canManageSupport },
   ].filter(item => item.show);
 

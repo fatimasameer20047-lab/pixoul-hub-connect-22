@@ -16,11 +16,13 @@ type OrderItem = {
 type OrderRow = {
   id: string;
   status: string;
+  payment_status?: string;
   room_location: string | null;
   room_details: string | null;
   inside_pixoul_confirmed: boolean;
   order_items?: OrderItem[];
   total?: number;
+  order_number?: number | null;
 };
 
 const statusLabel: Record<string, string> = {
@@ -51,7 +53,7 @@ export default function OrdersStatus() {
     setLoading(true);
     const { data, error } = await supabase
       .from('orders')
-      .select('id, status, room_location, room_details, inside_pixoul_confirmed, total, order_items(name, qty, unit_price)')
+      .select('id, status, payment_status, room_location, room_details, inside_pixoul_confirmed, total, order_number, order_items(name, qty, unit_price)')
       .eq('user_id', userId)
       .order('created_at', { ascending: false });
 
@@ -116,6 +118,8 @@ export default function OrdersStatus() {
           const statusKey = order.status || 'new';
           const label = statusLabel[statusKey] || statusKey;
           const variant = statusVariant[statusKey] || 'outline';
+          const orderLabel = order.order_number ? `Order #${order.order_number}` : `Order #${order.id.slice(0, 8)}`;
+          const isPaid = (order.payment_status || '').toLowerCase() === 'paid';
           const location = order.room_location || 'Location not specified';
           const detail = order.room_details ? ` – ${order.room_details}` : '';
 
@@ -131,7 +135,8 @@ export default function OrdersStatus() {
                 </div>
                 <Badge variant={variant}>{label}</Badge>
               </CardHeader>
-              <CardContent className="pt-0">
+              <CardContent className="pt-0 space-y-2">
+                <p className="text-xs text-muted-foreground">{orderLabel}</p>
                 <ScrollArea className="max-h-60 pr-2">
                   <div className="space-y-2">
                     {(order.order_items || []).map((item, idx) => (
@@ -149,7 +154,9 @@ export default function OrdersStatus() {
                       </div>
                     ))}
                     {(!order.order_items || order.order_items.length === 0) && (
-                      <p className="text-xs text-muted-foreground">Items will appear once confirmed.</p>
+                      <p className="text-xs text-muted-foreground">
+                        {isPaid ? 'Items will appear once confirmed.' : 'Complete payment to confirm this order.'}
+                      </p>
                     )}
                   </div>
                 </ScrollArea>

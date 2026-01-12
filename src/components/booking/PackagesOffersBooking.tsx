@@ -417,6 +417,8 @@ function PackageBookingForm({ selection, onBack }: { selection: PackageSelection
           total_amount: totalAmount,
           status: 'pending',
           payment_status: 'unpaid',
+          booking_source: 'package',
+          package_label: packageLabel,
           notes,
           contact_phone: `971${contactPhone}`,
           contact_email: contactEmail,

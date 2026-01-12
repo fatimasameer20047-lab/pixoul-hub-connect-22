@@ -548,6 +548,7 @@ export type Database = {
           fulfillment: string
           id: string
           inside_pixoul_confirmed: boolean
+          order_number: number
           notes: string | null
           payment_method: string
           payment_status: string
@@ -569,6 +570,7 @@ export type Database = {
           fulfillment?: string
           id?: string
           inside_pixoul_confirmed?: boolean
+          order_number?: number
           notes?: string | null
           payment_method?: string
           payment_status?: string
@@ -590,6 +592,7 @@ export type Database = {
           fulfillment?: string
           id?: string
           inside_pixoul_confirmed?: boolean
+          order_number?: number
           notes?: string | null
           payment_method?: string
           payment_status?: string
@@ -869,6 +872,7 @@ export type Database = {
           end_time: string
           id: string
           notes: string | null
+          package_label: string | null
           payment_method: string | null
           payment_status: string | null
           room_id: string
@@ -878,6 +882,7 @@ export type Database = {
           total_amount: number | null
           updated_at: string | null
           user_id: string
+          booking_source: string | null
         }
         Insert: {
           booking_date: string
@@ -888,6 +893,7 @@ export type Database = {
           end_time: string
           id?: string
           notes?: string | null
+          package_label?: string | null
           payment_method?: string | null
           payment_status?: string | null
           room_id: string
@@ -897,6 +903,7 @@ export type Database = {
           total_amount?: number | null
           updated_at?: string | null
           user_id: string
+          booking_source?: string | null
         }
         Update: {
           booking_date?: string
@@ -907,6 +914,7 @@ export type Database = {
           end_time?: string
           id?: string
           notes?: string | null
+          package_label?: string | null
           payment_method?: string | null
           payment_status?: string | null
           room_id?: string
@@ -916,6 +924,7 @@ export type Database = {
           total_amount?: number | null
           updated_at?: string | null
           user_id?: string
+          booking_source?: string | null
         }
         Relationships: [
           {

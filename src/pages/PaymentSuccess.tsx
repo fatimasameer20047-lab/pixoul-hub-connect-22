@@ -18,21 +18,33 @@ export default function PaymentSuccess() {
   const sessionId = searchParams.get('session_id');
 
   useEffect(() => {
-    // Webhook handles verification, just show success
     if (!sessionId || !type || !id) {
       setError('Invalid payment session');
       setVerifying(false);
       return;
     }
 
-    // Give webhook a moment to process
-    setTimeout(() => {
-      setVerifying(false);
-      toast({
-        title: "Payment successful!",
-        description: "Your payment has been processed",
-      });
-    }, 2000);
+    const verify = async () => {
+      try {
+        const { error: verifyError } = await supabase.functions.invoke('verify-payment', {
+          body: { sessionId }
+        });
+
+        if (verifyError) throw verifyError;
+
+        toast({
+          title: "Payment successful!",
+          description: "Your payment has been processed",
+        });
+      } catch (err: any) {
+        console.error('Payment verification failed:', err);
+        setError(err?.message || 'Payment verification failed.');
+      } finally {
+        setVerifying(false);
+      }
+    };
+
+    verify();
   }, [sessionId, type, id, toast]);
 
   const handleContinue = () => {

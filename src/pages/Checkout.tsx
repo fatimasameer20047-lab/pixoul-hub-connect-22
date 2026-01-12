@@ -14,6 +14,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { Input } from '@/components/ui/input';
 import { Checkbox } from '@/components/ui/checkbox';
 import { isPackageMenuItem } from '@/lib/package-catalog';
+import { RadioGroup, RadioGroupItem } from '@/components/ui/radio-group';
 
 const ROOM_OPTIONS = [
   'TR1',
@@ -37,6 +38,7 @@ export default function Checkout() {
   const [roomLocation, setRoomLocation] = useState<string>(cart?.room_location || '');
   const [roomDetails, setRoomDetails] = useState<string>(cart?.room_details || '');
   const [insidePixoul, setInsidePixoul] = useState<boolean>(Boolean(cart?.inside_pixoul_confirmed));
+  const [paymentMethod, setPaymentMethod] = useState<'card' | 'cash'>('card');
   const showLocationQuestions = cart?.items.some((item) => !isPackageMenuItem(item.menu_item_id)) ?? false;
 
   useEffect(() => {
@@ -85,6 +87,7 @@ export default function Checkout() {
 
   const createOrder = async () => {
     if (!cart || !user) return;
+    const isCash = paymentMethod === 'cash';
 
     if (showLocationQuestions && !roomLocation) {
       toast({
@@ -143,7 +146,7 @@ export default function Checkout() {
           tip: cart.tip,
           total: cart.total,
           payment_status: 'unpaid',
-          payment_method: 'card',
+          payment_method: paymentMethod,
           fulfillment: 'pickup',
           status: 'new',
           room_location: showLocationQuestions ? roomLocation : null,
@@ -155,9 +158,35 @@ export default function Checkout() {
 
       if (orderError) throw orderError;
 
-      // Don't create order items yet - they'll be created by the webhook after payment
-      setOrderId(order.id);
-      setShowCheckout(true);
+      if (isCash) {
+        const orderItems = (cart.items || []).map((item) => ({
+          order_id: order.id,
+          menu_item_id: item.menu_item_id,
+          name: item.name,
+          qty: item.qty,
+          unit_price: item.unit_price,
+          line_total: item.line_total,
+        }));
+
+        if (orderItems.length > 0) {
+          const { error: itemsError } = await supabase.from('order_items').insert(orderItems);
+          if (itemsError) throw itemsError;
+        }
+
+        await supabase.from('carts').update({ status: 'completed' }).eq('id', cart.id);
+        await clearCart();
+        setShowCheckout(false);
+        setOrderId(null);
+        toast({
+          title: 'Order placed',
+          description: `Pay with cash when you pick up. ${order.order_number ? `Order #${order.order_number}` : `Order #${order.id.slice(0, 8)}`}`,
+        });
+        navigate('/snacks', { state: { openOrders: true } });
+      } else {
+        // Don't create order items yet - they'll be created by the webhook after payment
+        setOrderId(order.id);
+        setShowCheckout(true);
+      }
     } catch (error) {
       console.error('Order creation error:', error);
       toast({
@@ -256,6 +285,30 @@ export default function Checkout() {
             </div>
           </div>
 
+          <div className="space-y-2">
+            <Label>Payment method</Label>
+            <RadioGroup
+              value={paymentMethod}
+              onValueChange={(value) => setPaymentMethod((value as 'card' | 'cash') || 'card')}
+              className="grid gap-3 sm:grid-cols-2"
+            >
+              <div className="flex items-start space-x-3 rounded-lg border p-3">
+                <RadioGroupItem value="card" id="pay-card" />
+                <Label htmlFor="pay-card" className="flex flex-col gap-1 cursor-pointer">
+                  <span className="font-medium">Pay by Card</span>
+                  <span className="text-xs text-muted-foreground">Proceed to secure payment</span>
+                </Label>
+              </div>
+              <div className="flex items-start space-x-3 rounded-lg border p-3">
+                <RadioGroupItem value="cash" id="pay-cash" />
+                <Label htmlFor="pay-cash" className="flex flex-col gap-1 cursor-pointer">
+                  <span className="font-medium">Pay by Cash</span>
+                  <span className="text-xs text-muted-foreground">Pay on pickup at the counter</span>
+                </Label>
+              </div>
+            </RadioGroup>
+          </div>
+
           <Button
             className="w-full"
             size="lg"
@@ -268,7 +321,7 @@ export default function Checkout() {
                 Creating Order...
               </>
             ) : (
-              'Proceed to Payment'
+              paymentMethod === 'cash' ? 'Place Order' : 'Proceed to Payment'
             )}
           </Button>
         </CardContent>

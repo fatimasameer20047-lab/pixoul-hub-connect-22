@@ -35,6 +35,7 @@ import StaffGallery from "./pages/staff/StaffGallery";
 import StaffGuides from "./pages/staff/StaffGuides";
 import StaffAnnouncements from "./pages/staff/StaffAnnouncements";
 import StaffSupport from "./pages/staff/StaffSupport";
+import StaffBookings from "./pages/staff/StaffBookings";
 import StaffPixoulPosts from "./pages/staff/StaffPixoulPosts";
 import StaffOrders from "./pages/staff/StaffOrders";
 import FromPixoul from "./pages/FromPixoul";
@@ -346,6 +347,13 @@ const AppRoutes = () => {
         <StaffRoute>
           <StaffLayout>
             <StaffHome />
+          </StaffLayout>
+        </StaffRoute>
+      } />
+      <Route path="/staff/bookings" element={
+        <StaffRoute>
+          <StaffLayout>
+            <StaffBookings />
           </StaffLayout>
         </StaffRoute>
       } />

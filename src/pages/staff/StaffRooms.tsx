@@ -7,11 +7,9 @@ import { supabase } from '@/integrations/supabase/client';
 import { useToast } from '@/hooks/use-toast';
 import { AddRoomDialog } from '@/components/booking/AddRoomDialog';
 import { RoomEditDialog } from '@/components/booking/RoomEditDialog';
-import { BookingDashboard } from '@/components/booking/BookingDashboard';
 import { formatPriceAEDUSD } from '@/lib/price-formatter';
 import { ImageViewer } from '@/components/ui/image-viewer';
 import { PartyGalleryManager } from '@/components/booking/PartyGalleryManager';
-import { useSearchParams } from 'react-router-dom';
 import { PackagesManager } from '@/components/booking/PackagesManager';
 import { PartyPricingEditor } from '@/components/booking/PartyPricingEditor';
 
@@ -33,8 +31,6 @@ export default function StaffRooms() {
   const [viewerImages, setViewerImages] = useState<string[]>([]);
   const [showViewer, setShowViewer] = useState(false);
   const { toast } = useToast();
-  const [searchParams] = useSearchParams();
-  const chatParam = searchParams.get('chat');
 
   useEffect(() => {
     fetchRooms();
@@ -131,8 +127,6 @@ export default function StaffRooms() {
       <div className="mt-8">
         <PartyGalleryManager />
       </div>
-
-      <BookingDashboard initialChatId={chatParam || undefined} />
 
       <AddRoomDialog
         open={showAddRoom}

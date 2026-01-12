@@ -35,10 +35,14 @@ export default function Snacks() {
   const location = useLocation();
   const navigate = useNavigate();
   const [openCartOnLoad] = useState(() => Boolean((location.state as { openCart?: boolean } | null)?.openCart));
-  const [showOrders, setShowOrders] = useState(false);
+  const [showOrders, setShowOrders] = useState(() => Boolean((location.state as { openOrders?: boolean } | null)?.openOrders));
 
   useEffect(() => {
-    if ((location.state as { openCart?: boolean } | null)?.openCart) {
+    const state = location.state as { openCart?: boolean; openOrders?: boolean } | null;
+    if (state?.openOrders) {
+      setShowOrders(true);
+    }
+    if (state?.openCart || state?.openOrders) {
       navigate(location.pathname, { replace: true });
     }
   }, [location, navigate]);

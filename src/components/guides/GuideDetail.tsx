@@ -253,38 +253,6 @@ export function GuideDetail({ guide, onBack }: GuideDetailProps) {
             </CardContent>
           </Card>
 
-          {/* Tags */}
-          {guide.tags && guide.tags.length > 0 && (
-            <Card>
-              <CardHeader>
-                <CardTitle>Tags</CardTitle>
-              </CardHeader>
-              <CardContent>
-                <div className="flex flex-wrap gap-2">
-                  {guide.tags.map((tag, index) => (
-                    <Badge key={index} variant="outline" className="text-xs">
-                      {tag}
-                    </Badge>
-                  ))}
-                </div>
-              </CardContent>
-            </Card>
-          )}
-
-          {/* Help Section */}
-          <Card>
-            <CardHeader>
-              <CardTitle>Need Help?</CardTitle>
-            </CardHeader>
-            <CardContent className="space-y-3">
-              <p className="text-sm text-muted-foreground">
-                Having trouble with this game? Our staff is here to help!
-              </p>
-              <Button variant="outline" className="w-full" size="sm">
-                Ask Staff for Help
-              </Button>
-            </CardContent>
-          </Card>
         </div>
       </div>
     </div>

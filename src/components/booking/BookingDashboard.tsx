@@ -6,7 +6,6 @@ import { Button } from '@/components/ui/button';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { supabase } from '@/integrations/supabase/client';
-import { useAuth } from '@/contexts/AuthContext';
 import { useStaff } from '@/contexts/StaffContext';
 import { useToast } from '@/hooks/use-toast';
 import { format, parseISO } from 'date-fns';
@@ -19,10 +18,13 @@ interface RoomBooking {
   duration_hours: number;
   total_amount: number;
   status: string;
+  payment_status?: string | null;
   notes?: string;
   contact_phone?: string;
   contact_email?: string;
   created_at: string;
+  package_label?: string | null;
+  booking_source?: string | null;
   rooms: {
     name: string;
     type: string;
@@ -56,9 +58,9 @@ interface PartyRequest {
 
 export function BookingDashboard({ initialChatId }: { initialChatId?: string }) {
   const [roomBookings, setRoomBookings] = useState<RoomBooking[]>([]);
+  const [packageBookings, setPackageBookings] = useState<RoomBooking[]>([]);
   const [partyRequests, setPartyRequests] = useState<PartyRequest[]>([]);
   const [loading, setLoading] = useState(true);
-  const { user } = useAuth();
   const { canManageRooms } = useStaff();
   const { toast } = useToast();
 
@@ -128,7 +130,9 @@ export function BookingDashboard({ initialChatId }: { initialChatId?: string }) 
 
       if (partyError) throw partyError;
 
-      setRoomBookings((roomData as any) || []);
+      const bookings = (roomData as any) || [];
+      setRoomBookings(bookings.filter((b: RoomBooking) => b.booking_source !== 'package' && !b.package_label));
+      setPackageBookings(bookings.filter((b: RoomBooking) => b.booking_source === 'package' || b.package_label));
       setPartyRequests((partyData as any) || []);
     } catch (error: any) {
       toast({
@@ -141,11 +145,18 @@ export function BookingDashboard({ initialChatId }: { initialChatId?: string }) 
     }
   };
 
-  const updateBookingStatus = async (bookingId: string, newStatus: string) => {
+  const cancelBooking = async (bookingId: string, currentStatus: string) => {
+    if (currentStatus === 'cancelled') {
+      toast({
+        title: "Already cancelled",
+        description: "This booking has already been cancelled.",
+      });
+      return;
+    }
     try {
       const { error } = await supabase
         .from('room_bookings')
-        .update({ status: newStatus })
+        .update({ status: 'cancelled' })
         .eq('id', bookingId);
 
       if (error) {
@@ -163,10 +174,7 @@ export function BookingDashboard({ initialChatId }: { initialChatId?: string }) 
         throw error;
       }
 
-      toast({
-        title: "Status updated",
-        description: "Booking status has been updated successfully.",
-      });
+      toast({ title: "Booking cancelled" });
 
       fetchBookings();
     } catch (error: any) {
@@ -232,6 +240,15 @@ export function BookingDashboard({ initialChatId }: { initialChatId?: string }) 
     }
   };
 
+  const formatDateSafe = (value?: string | null) => {
+    if (!value) return 'Date N/A';
+    try {
+      return format(parseISO(value), 'MMM dd, yyyy');
+    } catch {
+      return 'Date N/A';
+    }
+  };
+
   if (!canManageRooms) {
     return (
       <div className="container mx-auto px-4 py-8">
@@ -266,8 +283,9 @@ export function BookingDashboard({ initialChatId }: { initialChatId?: string }) 
         </div>
 
         <Tabs defaultValue="room-bookings" className="space-y-6">
-          <TabsList className="grid w-full grid-cols-2">
+          <TabsList className="grid w-full grid-cols-3">
             <TabsTrigger value="room-bookings">Room Bookings ({roomBookings.length})</TabsTrigger>
+            <TabsTrigger value="packages-offers">Packages &amp; Offers ({packageBookings.length})</TabsTrigger>
             <TabsTrigger value="party-requests">Party Requests ({partyRequests.length})</TabsTrigger>
           </TabsList>
 
@@ -278,13 +296,18 @@ export function BookingDashboard({ initialChatId }: { initialChatId?: string }) 
                   <div className="flex items-center justify-between">
                     <CardTitle className="flex items-center gap-2">
                       <MapPin className="h-5 w-5" />
-                      {booking.rooms.name} - {booking.profiles.name}
+                      {booking.rooms?.name || 'Room (deleted)'} - {booking.profiles?.name || 'Customer'}
                     </CardTitle>
                     <div className="flex items-center gap-2">
-                      <Badge variant={getStatusVariant(booking.status)}>
-                        {getStatusIcon(booking.status)}
-                        {booking.status}
-                      </Badge>
+                      {(() => {
+                        const status = booking.status || 'pending';
+                        return (
+                          <Badge variant={getStatusVariant(status)}>
+                            {getStatusIcon(status)}
+                            {status}
+                          </Badge>
+                        );
+                      })()}
                     </div>
                   </div>
                 </CardHeader>
@@ -292,18 +315,18 @@ export function BookingDashboard({ initialChatId }: { initialChatId?: string }) 
                   <div className="grid grid-cols-1 md:grid-cols-4 gap-4 text-sm">
                     <div className="flex items-center gap-2">
                       <Calendar className="h-4 w-4" />
-                      {format(parseISO(booking.booking_date), 'MMM dd, yyyy')}
+                      {formatDateSafe(booking.booking_date)}
                     </div>
                     <div className="flex items-center gap-2">
                       <Clock className="h-4 w-4" />
-                      {booking.start_time} - {booking.end_time}
+                      {booking.start_time || 'N/A'} - {booking.end_time || 'N/A'}
                     </div>
                     <div className="flex items-center gap-2">
-                      <span className="font-medium">${booking.total_amount}</span>
-                      <span className="text-muted-foreground">({booking.duration_hours}h)</span>
+                      <span className="font-medium">${booking.total_amount ?? '0'}</span>
+                      <span className="text-muted-foreground">({booking.duration_hours ?? 0}h)</span>
                     </div>
                     <div className="text-xs text-muted-foreground">
-                      {format(parseISO(booking.created_at), 'MMM dd, HH:mm')}
+                      {formatDateSafe(booking.created_at)}
                     </div>
                   </div>
 
@@ -330,19 +353,15 @@ export function BookingDashboard({ initialChatId }: { initialChatId?: string }) 
                     </div>
                   )}
 
-                  <Select
-                    defaultValue={booking.status}
-                    onValueChange={(newStatus) => updateBookingStatus(booking.id, newStatus)}
-                  >
-                    <SelectTrigger className="w-32">
-                      <SelectValue />
-                    </SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="pending">Pending</SelectItem>
-                      <SelectItem value="confirmed">Confirmed</SelectItem>
-                      <SelectItem value="cancelled">Cancelled</SelectItem>
-                    </SelectContent>
-                  </Select>
+                  <div className="flex items-center gap-2">
+                    <Button
+                      variant="outline"
+                      onClick={() => cancelBooking(booking.id, booking.status)}
+                      disabled={booking.status === 'cancelled'}
+                    >
+                      Cancel booking
+                    </Button>
+                  </div>
                 </CardContent>
               </Card>
             ))}
@@ -353,6 +372,74 @@ export function BookingDashboard({ initialChatId }: { initialChatId?: string }) 
                   <MapPin className="h-12 w-12 text-muted-foreground mx-auto mb-4" />
                   <h3 className="text-lg font-semibold mb-2">No room bookings</h3>
                   <p className="text-muted-foreground">Room bookings will appear here.</p>
+                </CardContent>
+              </Card>
+            )}
+          </TabsContent>
+
+          <TabsContent value="packages-offers" className="space-y-4">
+            {packageBookings.map((booking) => (
+              <Card key={booking.id}>
+                <CardHeader>
+                  <div className="flex items-center justify-between">
+                    <CardTitle className="flex items-center gap-2">
+                      <MapPin className="h-5 w-5" />
+                      {booking.package_label || 'Package booking'} - {booking.profiles?.name || 'Customer'}
+                    </CardTitle>
+                    {(() => {
+                      const status = booking.status || 'pending';
+                      return (
+                        <Badge variant={getStatusVariant(status)}>
+                          {getStatusIcon(status)}
+                          {status === 'pending' ? 'Pending Payment' : status}
+                        </Badge>
+                      );
+                    })()}
+                  </div>
+                </CardHeader>
+                <CardContent className="space-y-3">
+                  <div className="grid grid-cols-1 md:grid-cols-3 gap-4 text-sm">
+                    <div className="flex items-center gap-2">
+                      <Calendar className="h-4 w-4" />
+                      {formatDateSafe(booking.booking_date)}
+                    </div>
+                    <div className="flex items-center gap-2">
+                      <Clock className="h-4 w-4" />
+                      {booking.start_time || 'N/A'} - {booking.end_time || 'N/A'}
+                    </div>
+                    <div className="flex items-center gap-2">
+                      <span className="font-medium">${booking.total_amount ?? '0'}</span>
+                      <span className="text-muted-foreground capitalize">
+                        {booking.payment_status || 'unpaid'}
+                      </span>
+                    </div>
+                  </div>
+
+                  {booking.notes && (
+                    <div className="text-sm text-muted-foreground">
+                      <strong>Notes:</strong> {booking.notes}
+                    </div>
+                  )}
+
+                  <div className="flex items-center gap-2">
+                    <Button
+                      variant="outline"
+                      onClick={() => cancelBooking(booking.id, booking.status)}
+                      disabled={booking.status === 'cancelled'}
+                    >
+                      Cancel booking
+                    </Button>
+                  </div>
+                </CardContent>
+              </Card>
+            ))}
+
+            {packageBookings.length === 0 && (
+              <Card>
+                <CardContent className="text-center py-12">
+                  <MapPin className="h-12 w-12 text-muted-foreground mx-auto mb-4" />
+                  <h3 className="text-lg font-semibold mb-2">No package bookings</h3>
+                  <p className="text-muted-foreground">Packages &amp; offers bookings will appear here.</p>
                 </CardContent>
               </Card>
             )}

@@ -12,15 +12,19 @@ import { Loader2, UtensilsCrossed } from 'lucide-react';
 
 type OrderRow = {
   id: string;
+  user_id: string;
   status: string;
   total: number;
   created_at: string;
   payment_status: string;
+  payment_method?: string;
   room_location: string | null;
   room_details: string | null;
   inside_pixoul_confirmed: boolean;
   fulfillment: string;
   notes: string | null;
+  order_number?: number | null;
+  customer_name?: string;
 };
 
 type OrderItem = {
@@ -94,7 +98,7 @@ export default function StaffOrders() {
     setLoadingOrders(true);
     const { data, error } = await supabase
       .from('orders')
-      .select('id, status, total, created_at, payment_status, room_location, room_details, inside_pixoul_confirmed, fulfillment, notes')
+      .select('id, user_id, status, total, created_at, payment_status, payment_method, room_location, room_details, inside_pixoul_confirmed, fulfillment, notes, order_number')
       .order('created_at', { ascending: false })
       .limit(50);
 
@@ -102,7 +106,28 @@ export default function StaffOrders() {
       toast({ title: 'Error loading orders', description: error.message, variant: 'destructive' });
       setOrders([]);
     } else {
-      setOrders((data as OrderRow[]) || []);
+      const ordersData = (data as OrderRow[]) || [];
+      const userIds = Array.from(new Set(ordersData.map((o) => o.user_id).filter(Boolean)));
+
+      let profileMap: Record<string, string> = {};
+      if (userIds.length > 0) {
+        const { data: profiles } = await supabase
+          .from('profiles')
+          .select('user_id, name')
+          .in('user_id', userIds);
+
+        profileMap = (profiles || []).reduce<Record<string, string>>((acc, profile) => {
+          if (profile.user_id) acc[profile.user_id] = profile.name;
+          return acc;
+        }, {});
+      }
+
+      setOrders(
+        ordersData.map((order) => ({
+          ...order,
+          customer_name: profileMap[order.user_id] || 'Customer',
+        }))
+      );
     }
     setLoadingOrders(false);
   };
@@ -138,6 +163,11 @@ export default function StaffOrders() {
       fetchOrders();
     }
     setUpdating(false);
+  };
+
+  const formatOrderLabel = (order?: OrderRow | null) => {
+    if (!order) return 'Order';
+    return order.order_number ? `Order #${order.order_number}` : `Order #${order.id.slice(0, 8)}`;
   };
 
   if (!canManageSnacks) {
@@ -200,8 +230,11 @@ export default function StaffOrders() {
                       }`}
                     >
                       <div className="flex items-center justify-between gap-2">
-                        <div className="font-medium">Order #{order.id.slice(0, 8)}</div>
+                        <div className="font-medium">{formatOrderLabel(order)}</div>
                         <Badge variant={variant}>{label}</Badge>
+                      </div>
+                      <div className="text-xs text-muted-foreground">
+                        {order.customer_name || 'Customer'}
                       </div>
                       <div className="text-xs text-muted-foreground mt-1">
                         {formatDistanceToNow(new Date(order.created_at), { addSuffix: true })}
@@ -232,7 +265,10 @@ export default function StaffOrders() {
               <>
                 <div className="flex items-center justify-between">
                   <div>
-                    <div className="text-lg font-semibold">Order #{selectedOrder.id.slice(0, 8)}</div>
+                    <div className="text-lg font-semibold">{formatOrderLabel(selectedOrder)}</div>
+                    <div className="text-sm text-muted-foreground">
+                      {selectedOrder.customer_name || 'Customer'}
+                    </div>
                     <div className="text-sm text-muted-foreground">
                       Placed {formatDistanceToNow(new Date(selectedOrder.created_at), { addSuffix: true })}
                     </div>
@@ -249,7 +285,11 @@ export default function StaffOrders() {
                   </div>
                   <div className="rounded-lg border p-3">
                     <div className="text-xs text-muted-foreground">Payment</div>
-                    <div className="font-semibold">{selectedOrder.payment_status}</div>
+                    <div className="font-semibold">
+                      {selectedOrder.payment_method === 'cash'
+                        ? 'Cash - unpaid'
+                        : selectedOrder.payment_status}
+                    </div>
                   </div>
                   <div className="rounded-lg border p-3">
                     <div className="text-xs text-muted-foreground">Fulfillment</div>
