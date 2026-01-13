@@ -3,7 +3,7 @@ import { Sheet, SheetClose, SheetContent, SheetHeader, SheetTitle, SheetTrigger 
 import { Button } from '@/components/ui/button';
 import { ShoppingCart, Minus, Plus, Trash2, ArrowLeft } from 'lucide-react';
 import { useCart } from '@/hooks/use-cart';
-import { formatPriceAEDUSD } from '@/lib/price-formatter';
+import { formatPriceAED } from '@/lib/price-formatter';
 import { useNavigate } from 'react-router-dom';
 
 interface CartDrawerProps {
@@ -68,7 +68,7 @@ export function CartDrawer({ openOnLoad = false }: CartDrawerProps) {
                   <div className="flex-1">
                     <h4 className="font-semibold">{item.name}</h4>
                     <p className="text-sm text-muted-foreground">
-                      {formatPriceAEDUSD(item.unit_price)}
+                      {formatPriceAED(item.unit_price)}
                     </p>
                     <div className="flex items-center gap-2 mt-2">
                       <Button
@@ -99,7 +99,7 @@ export function CartDrawer({ openOnLoad = false }: CartDrawerProps) {
                     </div>
                   </div>
                   <div className="text-right">
-                    <p className="font-semibold">{formatPriceAEDUSD(item.line_total)}</p>
+                    <p className="font-semibold">{formatPriceAED(item.line_total)}</p>
                   </div>
                 </div>
               ))}
@@ -108,15 +108,15 @@ export function CartDrawer({ openOnLoad = false }: CartDrawerProps) {
             <div className="sticky bottom-0 bg-background border-t pt-4 pb-[calc(env(safe-area-inset-bottom)+16px)] space-y-2 z-50">
               <div className="flex justify-between text-sm">
                 <span>Subtotal</span>
-                <span>{formatPriceAEDUSD(cart.subtotal)}</span>
+                <span>{formatPriceAED(cart.subtotal)}</span>
               </div>
               <div className="flex justify-between text-sm">
                 <span>Tax (5%)</span>
-                <span>{formatPriceAEDUSD(cart.tax)}</span>
+                <span>{formatPriceAED(cart.tax)}</span>
               </div>
               <div className="flex justify-between font-bold text-lg pt-2 border-t">
                 <span>Total</span>
-                <span>{formatPriceAEDUSD(cart.total)}</span>
+                <span>{formatPriceAED(cart.total)}</span>
               </div>
               <Button
                 className="w-full mt-4"

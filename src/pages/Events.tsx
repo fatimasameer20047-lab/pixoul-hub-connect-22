@@ -13,7 +13,7 @@ import { format, parseISO, isBefore, startOfDay } from 'date-fns';
 import { EventDetail } from '@/components/events/EventDetail';
 import { MyRegistrations } from '@/components/events/MyRegistrations';
 import { EventForm } from '@/components/events/EventForm';
-import { formatPriceAEDUSD } from '@/lib/price-formatter';
+import { formatPriceAED } from '@/lib/price-formatter';
 import { ImageViewer } from '@/components/ui/image-viewer';
 
 interface Event {
@@ -310,7 +310,7 @@ export default function Events() {
                     {event.type === 'program' && (event.price || 0) > 0 && (
                       <div className="flex items-center gap-2">
                         <DollarSign className="h-4 w-4" />
-                        {formatPriceAEDUSD(event.price || 0)}
+                        {formatPriceAED(event.price || 0)}
                       </div>
                     )}
                     {event.type === 'program' && event.contact_phone && (
@@ -401,7 +401,7 @@ export default function Events() {
                     {event.type === 'program' && (event.price || 0) > 0 && (
                       <div className="flex items-center gap-2">
                         <DollarSign className="h-4 w-4" />
-                        {formatPriceAEDUSD(event.price || 0)}
+                        {formatPriceAED(event.price || 0)}
                       </div>
                     )}
                     {event.type === 'program' && event.contact_phone && (

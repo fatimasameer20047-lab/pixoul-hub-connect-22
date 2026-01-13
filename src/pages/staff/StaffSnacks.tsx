@@ -9,6 +9,7 @@ import { Switch } from '@/components/ui/switch';
 import { Plus, Coffee, Upload } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 import { supabase } from '@/integrations/supabase/client';
+import { formatPriceAED } from '@/lib/price-formatter';
 
 interface SnackItem {
   id: string;
@@ -277,7 +278,7 @@ export default function StaffSnacks() {
                 />
               </div>
               <div className="space-y-2">
-                <Label>Price (USD)</Label>
+                <Label>Price (AED)</Label>
                 <Input
                   type="number"
                   step="0.01"
@@ -365,7 +366,7 @@ export default function StaffSnacks() {
                 </div>
               ) : (
                 <div className="flex items-center justify-between">
-                  <div className="text-2xl font-bold">${item.price.toFixed(2)}</div>
+                  <div className="text-2xl font-bold">{formatPriceAED(item.price)}</div>
                   <Button variant="ghost" size="sm" onClick={() => startEditPrice(item)}>Edit</Button>
                 </div>
               )}

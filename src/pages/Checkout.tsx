@@ -7,7 +7,7 @@ import { useCart } from '@/hooks/use-cart';
 import { useAuth } from '@/contexts/AuthContext';
 import { supabase } from '@/integrations/supabase/client';
 import { useToast } from '@/hooks/use-toast';
-import { formatPriceAEDUSD } from '@/lib/price-formatter';
+import { formatPriceAED } from '@/lib/price-formatter';
 import { CheckoutDialog } from '@/components/payment/CheckoutDialog';
 import { Label } from '@/components/ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
@@ -265,7 +265,7 @@ export default function Checkout() {
                   <p className="font-medium">{item.name}</p>
                   <p className="text-sm text-muted-foreground">Qty: {item.qty}</p>
                 </div>
-                <p className="font-medium">{formatPriceAEDUSD(item.line_total)}</p>
+                <p className="font-medium">{formatPriceAED(item.line_total)}</p>
               </div>
             ))}
           </div>
@@ -273,15 +273,15 @@ export default function Checkout() {
           <div className="space-y-2 pt-4">
             <div className="flex justify-between">
               <span>Subtotal</span>
-              <span>{formatPriceAEDUSD(cart.subtotal)}</span>
+              <span>{formatPriceAED(cart.subtotal)}</span>
             </div>
             <div className="flex justify-between">
               <span>Tax (5%)</span>
-              <span>{formatPriceAEDUSD(cart.tax)}</span>
+              <span>{formatPriceAED(cart.tax)}</span>
             </div>
             <div className="flex justify-between font-bold text-lg pt-2 border-t">
               <span>Total</span>
-              <span>{formatPriceAEDUSD(cart.total)}</span>
+              <span>{formatPriceAED(cart.total)}</span>
             </div>
           </div>
 

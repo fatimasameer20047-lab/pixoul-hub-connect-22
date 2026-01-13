@@ -9,6 +9,7 @@ import { supabase } from '@/integrations/supabase/client';
 import { useStaff } from '@/contexts/StaffContext';
 import { useToast } from '@/hooks/use-toast';
 import { format, parseISO } from 'date-fns';
+import { formatPriceAED } from '@/lib/price-formatter';
 
 interface RoomBooking {
   id: string;
@@ -322,7 +323,7 @@ export function BookingDashboard({ initialChatId }: { initialChatId?: string }) 
                       {booking.start_time || 'N/A'} - {booking.end_time || 'N/A'}
                     </div>
                     <div className="flex items-center gap-2">
-                      <span className="font-medium">${booking.total_amount ?? '0'}</span>
+                      <span className="font-medium">{formatPriceAED(booking.total_amount ?? 0)}</span>
                       <span className="text-muted-foreground">({booking.duration_hours ?? 0}h)</span>
                     </div>
                     <div className="text-xs text-muted-foreground">
@@ -408,7 +409,7 @@ export function BookingDashboard({ initialChatId }: { initialChatId?: string }) 
                       {booking.start_time || 'N/A'} - {booking.end_time || 'N/A'}
                     </div>
                     <div className="flex items-center gap-2">
-                      <span className="font-medium">${booking.total_amount ?? '0'}</span>
+                      <span className="font-medium">{formatPriceAED(booking.total_amount ?? 0)}</span>
                       <span className="text-muted-foreground capitalize">
                         {booking.payment_status || 'unpaid'}
                       </span>
@@ -518,7 +519,7 @@ export function BookingDashboard({ initialChatId }: { initialChatId?: string }) 
 
                   {party.estimated_cost && (
                     <div className="text-sm">
-                      <strong>Estimated Cost:</strong> ${party.estimated_cost}
+                      <strong>Estimated Cost:</strong> {formatPriceAED(party.estimated_cost)}
                     </div>
                   )}
 

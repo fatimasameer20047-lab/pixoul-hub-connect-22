@@ -7,7 +7,7 @@ import { Plus, Minus } from 'lucide-react';
 import { CartDrawer } from '@/components/snacks/CartDrawer';
 import { useCart } from '@/hooks/use-cart';
 import { supabase } from '@/integrations/supabase/client';
-import { formatPriceAEDUSD } from '@/lib/price-formatter';
+import { formatPriceAED } from '@/lib/price-formatter';
 import { ImageViewer } from '@/components/ui/image-viewer';
 import { useLocation, useNavigate } from 'react-router-dom';
 import OrdersStatus from './OrdersStatus';
@@ -114,12 +114,12 @@ export default function Snacks() {
                 <CardTitle className="text-base leading-tight">{item.name}</CardTitle>
                 <Badge variant="default" className="text-[11px]">Most Popular</Badge>
               </div>
-              <div className="text-sm font-semibold">{formatPriceAEDUSD(item.price)}</div>
+              <div className="text-sm font-semibold">{formatPriceAED(item.price)}</div>
             </div>
           ) : (
             <div className="flex items-start justify-between gap-3 flex-wrap">
               <CardTitle className="text-base leading-tight min-w-0">{item.name}</CardTitle>
-              <div className="text-sm font-semibold whitespace-nowrap">{formatPriceAEDUSD(item.price)}</div>
+              <div className="text-sm font-semibold whitespace-nowrap">{formatPriceAED(item.price)}</div>
             </div>
           )}
         </CardHeader>
@@ -165,7 +165,7 @@ export default function Snacks() {
         <div className="flex-1 min-w-0 space-y-2 text-left">
           <div className="space-y-1 min-w-0">
             <h3 className="font-medium text-base break-words">{item.name}</h3>
-            <div className="text-sm font-semibold opacity-90">{formatPriceAEDUSD(item.price)}</div>
+            <div className="text-sm font-semibold opacity-90">{formatPriceAED(item.price)}</div>
           </div>
           <div className="flex items-center gap-2">
             <Button

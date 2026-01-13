@@ -6,6 +6,7 @@ import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/contexts/AuthContext';
 import { useToast } from '@/hooks/use-toast';
 import { format, parseISO } from 'date-fns';
+import { formatPriceAED } from '@/lib/price-formatter';
 
 interface Registration {
   id: string;
@@ -200,7 +201,7 @@ export function MyRegistrations() {
                 </div>
                 {registration.events_programs.type === 'program' && (registration.events_programs.price || 0) > 0 && (
                   <div>
-                    <strong>Total Cost:</strong> ${((registration.events_programs.price || 0) * registration.party_size).toFixed(2)}
+                    <strong>Total Cost:</strong> {formatPriceAED((registration.events_programs.price || 0) * registration.party_size)}
                   </div>
                 )}
                 {registration.notes && (

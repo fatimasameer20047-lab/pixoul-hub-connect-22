@@ -9,6 +9,7 @@ import { useToast } from '@/hooks/use-toast';
 import { format, parseISO } from 'date-fns';
 import { supabase } from '@/integrations/supabase/client';
 import { useNavigate } from 'react-router-dom';
+import { formatPriceAED } from '@/lib/price-formatter';
 
 interface RoomBooking {
   id: string;
@@ -18,6 +19,8 @@ interface RoomBooking {
   duration_hours: number;
   total_amount: number;
   status: string;
+  booking_source?: string | null;
+  package_label?: string | null;
   notes?: string;
   created_at: string;
   rooms: {
@@ -43,8 +46,10 @@ interface PartyRequest {
 
 export function MyBookings() {
   const [roomBookings, setRoomBookings] = useState<RoomBooking[]>([]);
+  const [packageBookings, setPackageBookings] = useState<RoomBooking[]>([]);
   const [partyRequests, setPartyRequests] = useState<PartyRequest[]>([]);
   const [loading, setLoading] = useState(true);
+  const [cancelPromptId, setCancelPromptId] = useState<string | null>(null);
   const navigate = useNavigate();
   const { user } = useAuth();
   const { toast } = useToast();
@@ -78,7 +83,16 @@ export function MyBookings() {
 
       if (partyError) throw partyError;
 
-      setRoomBookings(roomData || []);
+      setPackageBookings(
+        (roomData || []).filter(
+          (booking: RoomBooking) => booking.booking_source === 'package' || booking.package_label
+        )
+      );
+      setRoomBookings(
+        (roomData || []).filter(
+          (booking: RoomBooking) => booking.booking_source !== 'package' && !booking.package_label
+        )
+      );
       setPartyRequests(partyData || []);
     } catch (error: any) {
       toast({
@@ -132,8 +146,9 @@ export function MyBookings() {
   return (
     <>
       <Tabs defaultValue="rooms" className="space-y-6">
-        <TabsList className="grid w-full grid-cols-2">
+        <TabsList className="grid w-full grid-cols-3">
           <TabsTrigger value="rooms">Room Bookings ({roomBookings.length})</TabsTrigger>
+          <TabsTrigger value="packages">Packages &amp; Offers ({packageBookings.length})</TabsTrigger>
           <TabsTrigger value="parties">Party Requests ({partyRequests.length})</TabsTrigger>
         </TabsList>
 
@@ -174,7 +189,7 @@ export function MyBookings() {
                       {booking.start_time} - {booking.end_time}
                     </div>
                     <div className="flex items-center gap-2">
-                      <span className="font-medium">${booking.total_amount}</span>
+                      <span className="font-medium">{formatPriceAED(booking.total_amount ?? 0)}</span>
                       <span className="text-muted-foreground">({booking.duration_hours}h)</span>
                     </div>
                   </div>
@@ -185,7 +200,104 @@ export function MyBookings() {
                     </div>
                   )}
 
-                  <div className="flex gap-2" />
+                  <div className="flex items-center justify-between">
+                    <div />
+                    <Button
+                      variant="link"
+                      size="sm"
+                      className="px-0"
+                      onClick={() => setCancelPromptId(`room-${booking.id}`)}
+                    >
+                      Cancel my booking
+                    </Button>
+                  </div>
+
+                  {cancelPromptId === `room-${booking.id}` && (
+                    <div className="rounded-md border bg-muted/30 p-3 text-sm flex flex-col gap-2 md:flex-row md:items-center md:justify-between">
+                      <span className="text-muted-foreground">
+                        To cancel your booking, please chat with the staff.
+                      </span>
+                      <Button size="sm" onClick={() => navigate('/support')}>
+                        Chat with staff
+                      </Button>
+                    </div>
+                  )}
+                </CardContent>
+              </Card>
+            ))
+          )}
+        </TabsContent>
+
+        <TabsContent value="packages" className="space-y-4">
+          {packageBookings.length === 0 ? (
+            <Card>
+              <CardContent className="text-center py-12">
+                <MapPin className="h-12 w-12 text-muted-foreground mx-auto mb-4" />
+                <h3 className="text-lg font-semibold mb-2">No package bookings yet</h3>
+                <p className="text-muted-foreground">Package and offer bookings will appear here.</p>
+              </CardContent>
+            </Card>
+          ) : (
+            packageBookings.map((booking) => (
+              <Card key={booking.id}>
+                <CardHeader>
+                  <div className="flex items-center justify-between">
+                    <CardTitle className="flex items-center gap-2">
+                      <MapPin className="h-5 w-5" />
+                      {booking.package_label || 'Package booking'}
+                    </CardTitle>
+                    <div className="flex items-center gap-2">
+                      <Badge variant={getStatusVariant(booking.status)}>
+                        {getStatusIcon(booking.status)}
+                        {booking.status === 'pending' ? 'Pending Payment' : booking.status}
+                      </Badge>
+                    </div>
+                  </div>
+                </CardHeader>
+                <CardContent className="space-y-4">
+                  <div className="grid grid-cols-1 md:grid-cols-3 gap-4 text-sm">
+                    <div className="flex items-center gap-2">
+                      <Calendar className="h-4 w-4" />
+                      {format(parseISO(booking.booking_date), 'MMM dd, yyyy')}
+                    </div>
+                    <div className="flex items-center gap-2">
+                      <Clock className="h-4 w-4" />
+                      {booking.start_time} - {booking.end_time}
+                    </div>
+                    <div className="flex items-center gap-2">
+                      <span className="font-medium">{formatPriceAED(booking.total_amount ?? 0)}</span>
+                      <span className="text-muted-foreground">({booking.duration_hours}h)</span>
+                    </div>
+                  </div>
+
+                  {booking.notes && (
+                    <div className="text-sm text-muted-foreground">
+                      <strong>Notes:</strong> {booking.notes}
+                    </div>
+                  )}
+
+                  <div className="flex items-center justify-between">
+                    <div />
+                    <Button
+                      variant="link"
+                      size="sm"
+                      className="px-0"
+                      onClick={() => setCancelPromptId(`package-${booking.id}`)}
+                    >
+                      Cancel my booking
+                    </Button>
+                  </div>
+
+                  {cancelPromptId === `package-${booking.id}` && (
+                    <div className="rounded-md border bg-muted/30 p-3 text-sm flex flex-col gap-2 md:flex-row md:items-center md:justify-between">
+                      <span className="text-muted-foreground">
+                        To cancel your booking, please chat with the staff.
+                      </span>
+                      <Button size="sm" onClick={() => navigate('/support')}>
+                        Chat with staff
+                      </Button>
+                    </div>
+                  )}
                 </CardContent>
               </Card>
             ))
@@ -242,11 +354,32 @@ export function MyBookings() {
 
                   {party.estimated_cost && (
                     <div className="text-sm">
-                      <strong>Estimated Cost:</strong> ${party.estimated_cost}
+                      <strong>Estimated Cost:</strong> {formatPriceAED(party.estimated_cost)}
                     </div>
                   )}
 
-                  <div className="flex gap-2" />
+                  <div className="flex items-center justify-between">
+                    <div />
+                    <Button
+                      variant="link"
+                      size="sm"
+                      className="px-0"
+                      onClick={() => setCancelPromptId(`party-${party.id}`)}
+                    >
+                      Cancel my booking
+                    </Button>
+                  </div>
+
+                  {cancelPromptId === `party-${party.id}` && (
+                    <div className="rounded-md border bg-muted/30 p-3 text-sm flex flex-col gap-2 md:flex-row md:items-center md:justify-between">
+                      <span className="text-muted-foreground">
+                        To cancel your booking, please chat with the staff.
+                      </span>
+                      <Button size="sm" onClick={() => navigate('/support')}>
+                        Chat with staff
+                      </Button>
+                    </div>
+                  )}
                 </CardContent>
               </Card>
             ))

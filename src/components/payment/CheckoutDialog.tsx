@@ -4,7 +4,7 @@ import { CreditCard, Loader2 } from 'lucide-react';
 import { useState } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import { useToast } from '@/hooks/use-toast';
-import { formatPriceAEDUSD } from '@/lib/price-formatter';
+import { formatPriceAED } from '@/lib/price-formatter';
 
 interface CheckoutDialogProps {
   open: boolean;
@@ -87,15 +87,15 @@ export function CheckoutDialog({
           <div className="p-4 bg-muted rounded-lg space-y-2">
             <div className="flex justify-between text-sm">
               <span>Subtotal</span>
-              <span>{formatPriceAEDUSD(subtotal)}</span>
+              <span>{formatPriceAED(subtotal)}</span>
             </div>
             <div className="flex justify-between text-sm">
               <span>VAT (5%)</span>
-              <span>{formatPriceAEDUSD(vat)}</span>
+              <span>{formatPriceAED(vat)}</span>
             </div>
             <div className="flex justify-between font-bold text-lg pt-2 border-t">
               <span>Total</span>
-              <span>{formatPriceAEDUSD(total)}</span>
+              <span>{formatPriceAED(total)}</span>
             </div>
           </div>
 
@@ -122,7 +122,7 @@ export function CheckoutDialog({
             ) : (
               <>
                 <CreditCard className="mr-2 h-4 w-4" />
-                Pay {formatPriceAEDUSD(total)}
+                Pay {formatPriceAED(total)}
               </>
             )}
           </Button>

@@ -5,7 +5,7 @@ import { useAuth } from '@/contexts/AuthContext';
 import { supabase } from '@/integrations/supabase/client';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { Loader2, MapPin, UtensilsCrossed } from 'lucide-react';
-import { formatPriceAEDUSD } from '@/lib/price-formatter';
+import { formatPriceAED } from '@/lib/price-formatter';
 
 type OrderItem = {
   name: string;
@@ -148,7 +148,7 @@ export default function OrdersStatus() {
                         <div className="text-right">
                           <p className="text-xs text-muted-foreground">Price</p>
                           <p className="text-sm font-semibold">
-                            {formatPriceAEDUSD(item.unit_price * item.qty)}
+                            {formatPriceAED(item.unit_price * item.qty)}
                           </p>
                         </div>
                       </div>
@@ -163,7 +163,7 @@ export default function OrdersStatus() {
                 {typeof order.total === 'number' && (
                   <div className="mt-3 flex items-center justify-between rounded-lg border px-3 py-2">
                     <p className="text-sm font-medium">Order total</p>
-                    <p className="text-sm font-semibold">{formatPriceAEDUSD(order.total)}</p>
+                    <p className="text-sm font-semibold">{formatPriceAED(order.total)}</p>
                   </div>
                 )}
               </CardContent>

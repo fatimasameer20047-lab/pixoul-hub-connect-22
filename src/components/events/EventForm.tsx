@@ -14,6 +14,7 @@ import { useStaff } from '@/contexts/StaffContext';
 import { useToast } from '@/hooks/use-toast';
 import { format } from 'date-fns';
 import { cn } from '@/lib/utils';
+import { formatPriceAED } from '@/lib/price-formatter';
 
 interface Event {
   id?: string;
@@ -514,7 +515,7 @@ export function EventForm({ event, onBack, onSuccess }: EventFormProps) {
               {formData.type === 'program' && (
                 <>
                   <div className="space-y-2">
-                    <Label>Price (USD/AED) *</Label>
+                    <Label>Price (AED) *</Label>
                     <Input
                       type="number"
                       step="0.01"
@@ -616,10 +617,10 @@ export function EventForm({ event, onBack, onSuccess }: EventFormProps) {
               <div className="bg-muted/50 p-4 rounded-lg">
                 <h3 className="font-semibold mb-2">Price Display</h3>
                 <p className="text-sm text-muted-foreground">
-                  Price will be displayed in both USD and AED (converted automatically) to customers.
+                  Price will be displayed in AED to customers.
                   {formData.price && (
                     <span className="block mt-1">
-                      Display: ${formData.price} USD / {(parseFloat(formData.price) * 3.67).toFixed(2)} AED
+                      Display: {formatPriceAED(parseFloat(formData.price))}
                     </span>
                   )}
                 </p>

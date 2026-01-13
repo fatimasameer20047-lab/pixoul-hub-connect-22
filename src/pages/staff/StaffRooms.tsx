@@ -7,7 +7,7 @@ import { supabase } from '@/integrations/supabase/client';
 import { useToast } from '@/hooks/use-toast';
 import { AddRoomDialog } from '@/components/booking/AddRoomDialog';
 import { RoomEditDialog } from '@/components/booking/RoomEditDialog';
-import { formatPriceAEDUSD } from '@/lib/price-formatter';
+import { formatPriceAED } from '@/lib/price-formatter';
 import { ImageViewer } from '@/components/ui/image-viewer';
 import { PartyGalleryManager } from '@/components/booking/PartyGalleryManager';
 import { PackagesManager } from '@/components/booking/PackagesManager';
@@ -102,7 +102,7 @@ export default function StaffRooms() {
                 </div>
                 <div className="flex items-center gap-2">
                   <DollarSign className="h-4 w-4" />
-                  {formatPriceAEDUSD(room.hourly_rate)}/hour
+                  {formatPriceAED(room.hourly_rate)}/hour
                 </div>
               </div>
 

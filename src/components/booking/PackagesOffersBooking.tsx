@@ -9,7 +9,7 @@ import { Calendar as CalendarComponent } from '@/components/ui/calendar';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Alert, AlertDescription } from '@/components/ui/alert';
-import { formatPriceAEDUSD } from '@/lib/price-formatter';
+import { formatPriceAED } from '@/lib/price-formatter';
 import { useAuth } from '@/contexts/AuthContext';
 import { useToast } from '@/hooks/use-toast';
 import { useNavigate } from 'react-router-dom';
@@ -247,7 +247,7 @@ export function PackagesOffersBooking() {
                           onClick={() => handleSelect(group, item, option)}
                         >
                           <span>{option.label}</span>
-                          <span className="font-semibold">{formatPriceAEDUSD(option.price)}</span>
+                          <span className="font-semibold">{formatPriceAED(option.price)}</span>
                         </Button>
                       );
                     })}
@@ -645,7 +645,7 @@ function PackageBookingForm({ selection, onBack }: { selection: PackageSelection
 
               <div className="flex justify-between text-lg font-semibold">
                 <span>Total:</span>
-                <span>{formatPriceAEDUSD(totalAmount)}</span>
+                <span>{formatPriceAED(totalAmount)}</span>
               </div>
 
               <div className="text-sm text-muted-foreground space-y-1">

@@ -12,7 +12,7 @@ import { RoomBookingForm } from '@/components/booking/RoomBookingForm';
 import { PartyRequestForm } from '@/components/booking/PartyRequestForm';
 import { MyBookings } from '@/components/booking/MyBookings';
 import { BookingDashboard } from '@/components/booking/BookingDashboard';
-import { formatPriceAEDUSD } from '@/lib/price-formatter';
+import { formatPriceAED } from '@/lib/price-formatter';
 import { ImageViewer } from '@/components/ui/image-viewer';
 import { Sheet, SheetContent, SheetHeader, SheetTitle, SheetFooter } from '@/components/ui/sheet';
 import { PackagesOffersBooking } from '@/components/booking/PackagesOffersBooking';
@@ -279,7 +279,7 @@ export default function Booking() {
                     </div>
                     <div className="flex items-center gap-1">
                       <Clock className="h-3.5 w-3.5" />
-                      <span>{formatPriceAEDUSD(room.hourly_rate)}/hour</span>
+                      <span>{formatPriceAED(room.hourly_rate)}/hour</span>
                     </div>
                   </div>
                   <Button onClick={(e) => { e.stopPropagation(); handleBookRoom(room); }} className="w-full h-9 text-sm">Book</Button>
@@ -328,7 +328,7 @@ export default function Booking() {
                     </div>
                     <div className="flex items-center gap-2 text-xs">
                       <Clock className="h-4 w-4" />
-                      {formatPriceAEDUSD(room.hourly_rate)}/hour
+                      {formatPriceAED(room.hourly_rate)}/hour
                     </div>
                   </div>
 
@@ -430,7 +430,7 @@ export default function Booking() {
                   <Badge variant={quickViewRoom.type === 'vip' ? 'default' : 'secondary'} className="text-[11px]">
                     {quickViewRoom.type.toUpperCase()}
                   </Badge>
-                  <div className="text-sm">{formatPriceAEDUSD(quickViewRoom.hourly_rate)}/hour</div>
+                  <div className="text-sm">{formatPriceAED(quickViewRoom.hourly_rate)}/hour</div>
                 </div>
                 <div className="space-y-2">
                   <p className="text-sm text-muted-foreground">{quickViewRoom.description}</p>

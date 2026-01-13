@@ -256,6 +256,9 @@ export default function Support() {
           if (atBottom() && newCount > 0) setNewCount(0);
         }}
       >
+        <div className="sticky top-0 z-10 bg-muted/40 backdrop-blur px-2 py-2 text-sm text-muted-foreground">
+          A staff member will reply within the next 24 hours.
+        </div>
         {messages.length === 0 ? (
           <div className="text-center text-muted-foreground py-8">
             <MessageCircle className="h-12 w-12 mx-auto mb-4 opacity-50" />

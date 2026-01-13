@@ -11,7 +11,7 @@ import { useAuth } from '@/contexts/AuthContext';
 import { useToast } from '@/hooks/use-toast';
 import { format, parseISO, isBefore, startOfDay } from 'date-fns';
 import { CheckoutDialog } from '@/components/payment/CheckoutDialog';
-import { formatPriceAEDUSD } from '@/lib/price-formatter';
+import { formatPriceAED } from '@/lib/price-formatter';
 
 interface Event {
   id: string;
@@ -237,7 +237,7 @@ export function EventDetail({ event, onBack, onRegistrationComplete }: EventDeta
                   {eventPrice > 0 && (
                     <div className="flex justify-between font-semibold">
                       <span>Total:</span>
-                      <span>{formatPriceAEDUSD(eventPrice * parseInt(registrationData.partySize))}</span>
+                      <span>{formatPriceAED(eventPrice * parseInt(registrationData.partySize))}</span>
                     </div>
                   )}
                 </div>
@@ -331,7 +331,7 @@ export function EventDetail({ event, onBack, onRegistrationComplete }: EventDeta
                   {event.type === 'program' && eventPrice > 0 && (
                     <div className="flex items-center gap-2">
                       <DollarSign className="h-4 w-4" />
-                      {formatPriceAEDUSD(eventPrice)} per person
+                      {formatPriceAED(eventPrice)} per person
                     </div>
                   )}
                   {event.location && (
