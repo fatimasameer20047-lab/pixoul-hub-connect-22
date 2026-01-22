@@ -6,6 +6,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Check, X, AlertTriangle } from 'lucide-react';
 import { supabase } from '@/integrations/supabase/client';
 import { useToast } from '@/hooks/use-toast';
+import { useSearchParams } from 'react-router-dom';
 
 interface GalleryItem {
   id: string;
@@ -20,9 +21,16 @@ export default function StaffGallery() {
   const [pendingPosts, setPendingPosts] = useState<GalleryItem[]>([]);
   const [publicPosts, setPublicPosts] = useState<GalleryItem[]>([]);
   const { toast } = useToast();
+  const [searchParams] = useSearchParams();
+  const tabParam = searchParams.get('tab');
+  const highlightId = searchParams.get('highlight') || undefined;
+  const [activeTab, setActiveTab] = useState<'pending' | 'public'>(() => (tabParam === 'public' ? 'public' : 'pending'));
 
   useEffect(() => {
     fetchPosts();
+    if (tabParam === 'public' || tabParam === 'pending') {
+      setActiveTab(tabParam);
+    }
     
     // Set up real-time subscription for new posts
     const channel = supabase
@@ -43,7 +51,9 @@ export default function StaffGallery() {
     return () => {
       supabase.removeChannel(channel);
     };
-  }, []);
+  }, [tabParam]);
+
+  const isHighlighted = (id: string) => highlightId === id;
 
   const fetchPosts = async () => {
     const { data: pending } = await supabase
@@ -98,7 +108,7 @@ export default function StaffGallery() {
         <p className="text-muted-foreground">Review and manage user-submitted content</p>
       </div>
 
-      <Tabs defaultValue="pending" className="space-y-6">
+      <Tabs value={activeTab} onValueChange={(value) => setActiveTab(value as 'pending' | 'public')} className="space-y-6">
         <TabsList>
           <TabsTrigger value="pending">
             Pending Approval ({pendingPosts.length})
@@ -113,7 +123,10 @@ export default function StaffGallery() {
             <CardContent className="pt-6">
               <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
                 {pendingPosts.map((post) => (
-                  <Card key={post.id} className="overflow-hidden">
+                  <Card
+                    key={post.id}
+                    className={`overflow-hidden ${isHighlighted(post.id) ? 'border-primary ring-2 ring-primary/30' : ''}`}
+                  >
                     <img src={post.url} alt="" className="w-full aspect-square object-cover" />
                     <CardContent className="pt-4 space-y-3">
                       <p className="text-sm">{post.caption}</p>
@@ -157,7 +170,10 @@ export default function StaffGallery() {
         <TabsContent value="public" className="space-y-4">
           <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
             {publicPosts.map((post) => (
-              <Card key={post.id} className="overflow-hidden group">
+              <Card
+                key={post.id}
+                className={`overflow-hidden group ${isHighlighted(post.id) ? 'border-primary ring-2 ring-primary/30' : ''}`}
+              >
                 <img src={post.url} alt="" className="w-full aspect-square object-cover" />
                 <CardContent className="pt-4 space-y-2">
                   <p className="text-sm line-clamp-2">{post.caption}</p>

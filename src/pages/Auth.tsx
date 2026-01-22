@@ -6,9 +6,10 @@ import { Label } from '@/components/ui/label';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Badge } from '@/components/ui/badge';
-import { LogIn, UserPlus, Loader, Users, Check, X } from 'lucide-react';
+import { LogIn, UserPlus, Loader, Users, Check, X, AlertCircle } from 'lucide-react';
 import { supabase } from '@/integrations/supabase/client';
 import { useToast } from '@/hooks/use-toast';
+import { isPhoneValid } from '@/components/booking/booking-validators';
 
 export default function Auth() {
   const [isLoading, setIsLoading] = useState(false);
@@ -18,8 +19,39 @@ export default function Auth() {
   const [username, setUsername] = useState('');
   const [usernameAvailable, setUsernameAvailable] = useState<boolean | null>(null);
   const [checkingUsername, setCheckingUsername] = useState(false);
+  const [phone, setPhone] = useState('');
+  const [phoneError, setPhoneError] = useState<string | null>(null);
+  const [loginEmail, setLoginEmail] = useState('');
+  const [loginPassword, setLoginPassword] = useState('');
+  const [profile, setProfile] = useState<any>(null);
   const navigate = useNavigate();
   const { toast } = useToast();
+
+  const fetchProfileWithRetry = async (userId: string) => {
+    const attempts = 6;
+    const delayMs = 300;
+    for (let i = 0; i < attempts; i++) {
+      const { data, error } = await supabase
+        .from('profiles' as any)
+        .select('user_id, name, full_name, username, email, phone_number')
+        .eq('user_id', userId)
+        .maybeSingle();
+
+      if (!error && data) return data;
+      await new Promise((resolve) => setTimeout(resolve, delayMs));
+    }
+    return null;
+  };
+
+  const syncProfileFromAuthUser = async (authUser: any) => {
+    if (!authUser?.id) return;
+
+    const profileRow = await fetchProfileWithRetry(authUser.id);
+    if (profileRow) {
+      setProfile(profileRow);
+    }
+    return profileRow;
+  };
 
   useEffect(() => {
     const checkUsername = async () => {
@@ -48,6 +80,16 @@ export default function Auth() {
     return () => clearTimeout(timer);
   }, [username]);
 
+  useEffect(() => {
+    const hydrateProfile = async () => {
+      const { data: authData } = await supabase.auth.getUser();
+      if (authData?.user) {
+        await syncProfileFromAuthUser(authData.user);
+      }
+    };
+    hydrateProfile();
+  }, []);
+
   const handleSignUp = async (e: React.FormEvent) => {
     e.preventDefault();
     
@@ -59,45 +101,50 @@ export default function Auth() {
       });
       return;
     }
+
+    const sanitizedPhone = phone.replace(/\D/g, '');
+    if (!isPhoneValid(sanitizedPhone)) {
+      setPhoneError('Enter a valid UAE mobile number (e.g., 50xxxxxxx).');
+      return;
+    }
     
+    setPhoneError(null);
     setIsLoading(true);
     
     try {
-      const redirectUrl = `${window.location.origin}/`;
-      
+      const fullPhone = `+971${sanitizedPhone}`;
+      const sanitizedUsername = username.trim().toLowerCase();
+      const fullName = name.trim();
+
       const { data: signUpData, error: signUpError } = await supabase.auth.signUp({
         email,
         password,
         options: {
-          emailRedirectTo: redirectUrl,
           data: {
-            full_name: name,
-            username: username.toLowerCase()
+            full_name: fullName,
+            username: sanitizedUsername,
+            phone_number: fullPhone,
           }
         }
       });
       
       if (signUpError) throw signUpError;
+      if (!signUpData.user) throw new Error('Account created but missing user data.');
 
-      // Set username in profile
-      if (signUpData.user) {
-        await supabase
-          .from('profiles' as any)
-          .update({ username: username.toLowerCase() })
-          .eq('user_id', signUpData.user.id);
-      }
-      
+      // Fetch the profile created by the DB trigger (best-effort retry)
+      await fetchProfileWithRetry(signUpData.user.id);
+
       toast({
-        title: "Account created successfully!",
+        title: "Account created",
         description: "Please check your email to verify your account.",
       });
-      
-      // Clear form
+
       setName('');
       setUsername('');
       setEmail('');
       setPassword('');
-      
+      setPhone('');
+      setPhoneError(null);
     } catch (error: any) {
       toast({
         title: "Error",
@@ -111,15 +158,30 @@ export default function Auth() {
 
   const handleSignIn = async (e: React.FormEvent) => {
     e.preventDefault();
+    const identifier = loginEmail.trim();
+    if (!identifier || !loginPassword) {
+      toast({
+        title: "Missing information",
+        description: "Enter your email and password.",
+        variant: "destructive",
+      });
+      return;
+    }
     setIsLoading(true);
     
     try {
       const { error } = await supabase.auth.signInWithPassword({
-        email,
-        password,
+        email: identifier,
+        password: loginPassword,
       });
       
       if (error) throw error;
+
+      const userRes = await supabase.auth.getUser();
+      const authUser = userRes.data.user;
+      if (authUser) {
+        await syncProfileFromAuthUser(authUser);
+      }
       
       toast({
         title: "Welcome back!",
@@ -127,7 +189,6 @@ export default function Auth() {
       });
       
       navigate('/');
-      
     } catch (error: any) {
       toast({
         title: "Error",
@@ -157,9 +218,9 @@ export default function Auth() {
         <Card>
           <CardHeader>
             <CardTitle className="text-xl">Authentication</CardTitle>
-            <CardDescription>
+          <CardDescription>
               Sign in to your account or create a new one
-            </CardDescription>
+          </CardDescription>
           </CardHeader>
           <CardContent>
             <Tabs defaultValue="signin" className="w-full">
@@ -180,10 +241,10 @@ export default function Auth() {
                     <Label htmlFor="signin-email">Email</Label>
                     <Input
                       id="signin-email"
-                      type="email"
+                      type="text"
                       placeholder="Enter your email"
-                      value={email}
-                      onChange={(e) => setEmail(e.target.value)}
+                      value={loginEmail}
+                      onChange={(e) => setLoginEmail(e.target.value)}
                       required
                     />
                   </div>
@@ -193,8 +254,8 @@ export default function Auth() {
                       id="signin-password"
                       type="password"
                       placeholder="Enter your password"
-                      value={password}
-                      onChange={(e) => setPassword(e.target.value)}
+                      value={loginPassword}
+                      onChange={(e) => setLoginPassword(e.target.value)}
                       required
                     />
                   </div>
@@ -264,6 +325,36 @@ export default function Auth() {
                     />
                   </div>
                   <div className="space-y-2">
+                    <Label htmlFor="signup-phone">Phone Number</Label>
+                    <div className="flex">
+                      <span className="inline-flex items-center px-3 rounded-l-md border border-input bg-muted text-sm text-muted-foreground select-none">
+                        +971
+                      </span>
+                      <Input
+                        id="signup-phone"
+                        type="tel"
+                        inputMode="numeric"
+                        placeholder="5xxxxxxxx"
+                        value={phone}
+                        onChange={(e) => {
+                          const digits = e.target.value.replace(/\D/g, '').slice(0, 9);
+                          setPhone(digits);
+                          if (phoneError && isPhoneValid(digits)) {
+                            setPhoneError(null);
+                          }
+                        }}
+                        className="rounded-l-none"
+                        required
+                      />
+                    </div>
+                    {phoneError && (
+                      <div className="flex items-center gap-2 text-sm text-destructive">
+                        <AlertCircle className="h-4 w-4" />
+                        <span>{phoneError}</span>
+                      </div>
+                    )}
+                  </div>
+                  <div className="space-y-2">
                     <Label htmlFor="signup-password">Password</Label>
                     <Input
                       id="signup-password"
@@ -275,7 +366,11 @@ export default function Auth() {
                       minLength={6}
                     />
                   </div>
-                  <Button type="submit" className="w-full" disabled={isLoading || usernameAvailable !== true}>
+                  <Button 
+                    type="submit" 
+                    className="w-full" 
+                    disabled={isLoading || usernameAvailable !== true || !isPhoneValid(phone)}
+                  >
                     {isLoading ? (
                       <>
                         <Loader className="h-4 w-4 mr-2 animate-spin" />

@@ -15,6 +15,7 @@ import { MyRegistrations } from '@/components/events/MyRegistrations';
 import { EventForm } from '@/components/events/EventForm';
 import { formatPriceAED } from '@/lib/price-formatter';
 import { ImageViewer } from '@/components/ui/image-viewer';
+import { useSearchParams } from 'react-router-dom';
 
 interface Event {
   id: string;
@@ -53,6 +54,7 @@ export default function Events() {
   const { user } = useAuth();
   const isDemoMode = import.meta.env.DEMO_MODE === 'true';
   const { toast } = useToast();
+  const [searchParams, setSearchParams] = useSearchParams();
 
   useEffect(() => {
     fetchEvents();
@@ -61,6 +63,15 @@ export default function Events() {
   useEffect(() => {
     filterEvents();
   }, [events, searchTerm, typeFilter, categoryFilter, dateFilter]);
+
+  useEffect(() => {
+    const eventIdParam = searchParams.get('eventId');
+    if (!eventIdParam) return;
+    const eventMatch = events.find((evt) => evt.id === eventIdParam);
+    if (eventMatch) {
+      setSelectedEvent(eventMatch);
+    }
+  }, [events, searchParams]);
 
   const fetchEvents = async () => {
     try {
@@ -135,11 +146,25 @@ export default function Events() {
     return isBefore(parseISO(compareDate), startOfDay(new Date()));
   };
 
+  const handleOpenEvent = (event: Event) => {
+    const params = new URLSearchParams(searchParams);
+    params.set('eventId', event.id);
+    setSearchParams(params);
+    setSelectedEvent(event);
+  };
+
+  const handleCloseEvent = () => {
+    const params = new URLSearchParams(searchParams);
+    params.delete('eventId');
+    setSearchParams(params);
+    setSelectedEvent(null);
+  };
+
   if (selectedEvent) {
     return (
       <EventDetail 
         event={selectedEvent} 
-        onBack={() => setSelectedEvent(null)}
+        onBack={handleCloseEvent}
         onRegistrationComplete={fetchEvents}
       />
     );
@@ -258,7 +283,7 @@ export default function Events() {
               <Card 
                 key={event.id} 
                 className="group hover:shadow-lg hover:shadow-primary/20 transition-all duration-300 cursor-pointer overflow-hidden"
-                onClick={() => setSelectedEvent(event)}
+                onClick={() => handleOpenEvent(event)}
               >
                 {event.image_url && (
                   <div 
@@ -326,7 +351,7 @@ export default function Events() {
                     disabled={isEventPast(event)}
                     onClick={(e) => {
                       e.stopPropagation();
-                      setSelectedEvent(event);
+                      handleOpenEvent(event);
                     }}
                   >
                     {isEventPast(event) ? 'Past Event' : 'View Details'}
@@ -342,7 +367,7 @@ export default function Events() {
               <Card 
                 key={event.id} 
                 className="group hover:shadow-lg hover:shadow-primary/20 transition-all duration-300 cursor-pointer overflow-hidden"
-                onClick={() => setSelectedEvent(event)}
+                onClick={() => handleOpenEvent(event)}
               >
                 {event.image_url && (
                   <div 
@@ -422,10 +447,10 @@ export default function Events() {
                     <Button 
                       className="flex-1 w-full" 
                       variant={isEventPast(event) ? "outline" : "default"}
-                      onClick={(e) => {
-                        e.stopPropagation();
-                        setSelectedEvent(event);
-                      }}
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          handleOpenEvent(event);
+                        }}
                     >
                       {isEventPast(event) ? 'Past Event' : 'View Details'}
                     </Button>

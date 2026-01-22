@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+﻿import React, { useState, useEffect } from 'react';
 import { Calendar, Clock, Users, MapPin, CheckCircle, XCircle, Loader } from 'lucide-react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
@@ -60,6 +60,30 @@ export function MyBookings() {
     }
   }, [user]);
 
+  useEffect(() => {
+    if (!user) return;
+
+    const channel = supabase
+      .channel(`room-bookings-user-${user.id}`)
+      .on(
+        'postgres_changes',
+        {
+          event: '*',
+          schema: 'public',
+          table: 'room_bookings',
+          filter: `user_id=eq.${user.id}`
+        },
+        () => {
+          fetchBookings();
+        }
+      )
+      .subscribe();
+
+    return () => {
+      supabase.removeChannel(channel);
+    };
+  }, [user]);
+
   const fetchBookings = async () => {
     try {
       // Fetch room bookings
@@ -103,6 +127,17 @@ export function MyBookings() {
     } finally {
       setLoading(false);
     }
+  };
+
+  const openSupportForBooking = (booking: RoomBooking) => {
+    const message = `Hi, Iâ€™d like to cancel my booking and request a refund if applicable:
+Room: ${booking.rooms.name}
+Date: ${format(parseISO(booking.booking_date), 'yyyy-MM-dd')}
+Time: ${booking.start_time} - ${booking.end_time}
+Booking ID: ${booking.id}
+Thank you.`;
+
+    navigate('/support', { state: { prefillMessage: message } });
   };
 
   const getStatusIcon = (status: string) => {
@@ -215,11 +250,16 @@ export function MyBookings() {
                   {cancelPromptId === `room-${booking.id}` && (
                     <div className="rounded-md border bg-muted/30 p-3 text-sm flex flex-col gap-2 md:flex-row md:items-center md:justify-between">
                       <span className="text-muted-foreground">
-                        To cancel your booking, please chat with the staff.
+                        To cancel and request a refund, please message our staff. We’ll confirm the cancellation and refund details in chat.
                       </span>
-                      <Button size="sm" onClick={() => navigate('/support')}>
-                        Chat with staff
-                      </Button>
+                      <div className="flex items-center gap-2">
+                        <Button size="sm" onClick={() => openSupportForBooking(booking)}>
+                          Chat with staff
+                        </Button>
+                        <Button size="sm" variant="ghost" onClick={() => setCancelPromptId(null)}>
+                          Keep booking
+                        </Button>
+                      </div>
                     </div>
                   )}
                 </CardContent>
@@ -291,11 +331,16 @@ export function MyBookings() {
                   {cancelPromptId === `package-${booking.id}` && (
                     <div className="rounded-md border bg-muted/30 p-3 text-sm flex flex-col gap-2 md:flex-row md:items-center md:justify-between">
                       <span className="text-muted-foreground">
-                        To cancel your booking, please chat with the staff.
+                        To cancel and request a refund, please message our staff. We’ll confirm the cancellation and refund details in chat.
                       </span>
-                      <Button size="sm" onClick={() => navigate('/support')}>
-                        Chat with staff
-                      </Button>
+                      <div className="flex items-center gap-2">
+                        <Button size="sm" onClick={() => openSupportForBooking(booking)}>
+                          Chat with staff
+                        </Button>
+                        <Button size="sm" variant="ghost" onClick={() => setCancelPromptId(null)}>
+                          Keep booking
+                        </Button>
+                      </div>
                     </div>
                   )}
                 </CardContent>
@@ -390,3 +435,4 @@ export function MyBookings() {
     </>
   );
 }
+

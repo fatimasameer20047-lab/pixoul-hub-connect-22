@@ -39,6 +39,9 @@ class BookingErrorBoundary extends React.Component<{ children: React.ReactNode }
 export default function StaffBookings() {
   const [searchParams] = useSearchParams();
   const chatParam = searchParams.get('chat');
+  const tabParam = searchParams.get('tab');
+  const highlightId = searchParams.get('highlight') || undefined;
+  const highlightType = searchParams.get('type') || undefined;
   const { canManageRooms } = useStaff();
   const [hydrated, setHydrated] = useState(false);
 
@@ -72,7 +75,12 @@ export default function StaffBookings() {
   return (
     <div className="p-6">
       <BookingErrorBoundary>
-        <BookingDashboard initialChatId={chatParam || undefined} />
+        <BookingDashboard
+          initialChatId={chatParam || undefined}
+          initialTab={tabParam === 'room-bookings' || tabParam === 'packages-offers' || tabParam === 'party-requests' ? tabParam : undefined}
+          highlightId={highlightId}
+          highlightType={highlightType}
+        />
       </BookingErrorBoundary>
     </div>
   );

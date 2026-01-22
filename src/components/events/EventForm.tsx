@@ -84,7 +84,7 @@ export function EventForm({ event, onBack, onSuccess }: EventFormProps) {
     title: event?.title || '',
     description: event?.description || '',
     type: event?.type || 'event' as 'event' | 'program',
-    category: event?.category || '',
+    category: (event?.category as 'Educational' | 'Workshop' | 'Entertainment') || 'Entertainment',
     location: event?.location || '',
     instructor: event?.instructor || '',
     price: event?.price?.toString() || '',
@@ -219,7 +219,7 @@ export function EventForm({ event, onBack, onSuccess }: EventFormProps) {
         title: formData.title,
         description: formData.description,
         type: formData.type,
-        category: formData.category || null,
+        category: formData.category,
         price: parsedPrice,
         contact_phone: isProgram ? formData.contactPhone : null,
         location: formData.location || null,
@@ -362,12 +362,20 @@ export function EventForm({ event, onBack, onSuccess }: EventFormProps) {
               </div>
 
               <div className="space-y-2">
-                <Label>Category</Label>
-                <Input
+                <Label>Category *</Label>
+                <Select
                   value={formData.category}
-                  onChange={(e) => handleInputChange('category', e.target.value)}
-                  placeholder="e.g., Workshop, Tournament, Training"
-                />
+                  onValueChange={(value: 'Educational' | 'Workshop' | 'Entertainment') => handleInputChange('category', value)}
+                >
+                  <SelectTrigger>
+                    <SelectValue placeholder="Select category" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="Educational">Educational</SelectItem>
+                    <SelectItem value="Workshop">Workshop</SelectItem>
+                    <SelectItem value="Entertainment">Entertainment</SelectItem>
+                  </SelectContent>
+                </Select>
               </div>
 
               <div className="space-y-2">

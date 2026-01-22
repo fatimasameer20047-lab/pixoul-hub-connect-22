@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from 'react';
+﻿import { useEffect, useMemo, useState } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
@@ -8,7 +8,7 @@ import { supabase } from '@/integrations/supabase/client';
 import { useToast } from '@/hooks/use-toast';
 import { formatDistanceToNow } from 'date-fns';
 import { useStaff } from '@/contexts/StaffContext';
-import { Loader2, UtensilsCrossed } from 'lucide-react';
+import { Loader2, Mail, Phone, User, Users, UtensilsCrossed } from 'lucide-react';
 
 type OrderRow = {
   id: string;
@@ -25,6 +25,9 @@ type OrderRow = {
   notes: string | null;
   order_number?: number | null;
   customer_name?: string;
+  customer_phone?: string | null;
+  customer_email?: string | null;
+  customer_username?: string | null;
 };
 
 type OrderItem = {
@@ -55,10 +58,26 @@ export default function StaffOrders() {
   const [loadingOrders, setLoadingOrders] = useState(false);
   const [loadingItems, setLoadingItems] = useState(false);
   const [updating, setUpdating] = useState(false);
+  const [selectedProfile, setSelectedProfile] = useState<{
+    full_name?: string | null;
+    username?: string | null;
+    email?: string | null;
+    phone_number?: string | null;
+  } | null>(null);
 
   const selectedOrder = useMemo(
     () => orders.find((o) => o.id === selectedOrderId) || null,
     [orders, selectedOrderId]
+  );
+
+  const selectedCustomer = useMemo(
+    () => ({
+      name: selectedProfile?.full_name || selectedOrder?.customer_name || '—',
+      username: selectedProfile?.username || selectedOrder?.customer_username || '—',
+      email: selectedProfile?.email || selectedOrder?.customer_email || '—',
+      phone: selectedProfile?.phone_number || selectedOrder?.customer_phone || '—',
+    }),
+    [selectedOrder, selectedProfile]
   );
 
   useEffect(() => {
@@ -74,9 +93,11 @@ export default function StaffOrders() {
   useEffect(() => {
     if (!selectedOrderId) {
       setItems([]);
+      setSelectedProfile(null);
       return;
     }
     fetchItems(selectedOrderId);
+    fetchProfile(selectedOrderId);
   }, [selectedOrderId]);
 
   useEffect(() => {
@@ -109,15 +130,15 @@ export default function StaffOrders() {
       const ordersData = (data as OrderRow[]) || [];
       const userIds = Array.from(new Set(ordersData.map((o) => o.user_id).filter(Boolean)));
 
-      let profileMap: Record<string, string> = {};
+      let profileMap: Record<string, { name?: string; phone?: string | null; username?: string | null; email?: string | null }> = {};
       if (userIds.length > 0) {
         const { data: profiles } = await supabase
           .from('profiles')
-          .select('user_id, name')
+          .select('user_id, name, full_name, username, email, phone_number')
           .in('user_id', userIds);
 
-        profileMap = (profiles || []).reduce<Record<string, string>>((acc, profile) => {
-          if (profile.user_id) acc[profile.user_id] = profile.name;
+        profileMap = (profiles || []).reduce<Record<string, { name?: string; phone?: string | null; username?: string | null; email?: string | null }>>((acc, profile) => {
+          if (profile.user_id) acc[profile.user_id] = { name: profile.full_name || profile.name, phone: (profile as any).phone_number, username: (profile as any).username, email: (profile as any).email };
           return acc;
         }, {});
       }
@@ -125,7 +146,10 @@ export default function StaffOrders() {
       setOrders(
         ordersData.map((order) => ({
           ...order,
-          customer_name: profileMap[order.user_id] || 'Customer',
+          customer_name: profileMap[order.user_id]?.name || 'Customer',
+          customer_phone: profileMap[order.user_id]?.phone || null,
+          customer_email: profileMap[order.user_id]?.email || null,
+          customer_username: profileMap[order.user_id]?.username || null,
         }))
       );
     }
@@ -146,6 +170,24 @@ export default function StaffOrders() {
       setItems((data as OrderItem[]) || []);
     }
     setLoadingItems(false);
+  };
+
+  const fetchProfile = async (orderIdValue: string) => {
+    const order = orders.find(o => o.id === orderIdValue);
+    if (!order?.user_id) {
+      setSelectedProfile(null);
+      return;
+    }
+    const { data, error } = await supabase
+      .from('profiles')
+      .select('full_name, username, email, phone_number')
+      .eq('user_id', order.user_id)
+      .maybeSingle();
+    if (!error) {
+      setSelectedProfile(data);
+    } else {
+      setSelectedProfile(null);
+    }
   };
 
   const updateStatus = async (status: 'preparing' | 'ready' | 'completed') => {
@@ -236,6 +278,12 @@ export default function StaffOrders() {
                       <div className="text-xs text-muted-foreground">
                         {order.customer_name || 'Customer'}
                       </div>
+                      {order.customer_phone && (
+                        <div className="text-xs text-muted-foreground flex items-center gap-1">
+                          <Phone className="h-3 w-3" />
+                          {order.customer_phone}
+                        </div>
+                      )}
                       <div className="text-xs text-muted-foreground mt-1">
                         {formatDistanceToNow(new Date(order.created_at), { addSuffix: true })}
                       </div>
@@ -266,8 +314,27 @@ export default function StaffOrders() {
                 <div className="flex items-center justify-between">
                   <div>
                     <div className="text-lg font-semibold">{formatOrderLabel(selectedOrder)}</div>
-                    <div className="text-sm text-muted-foreground">
-                      {selectedOrder.customer_name || 'Customer'}
+                    <div className="space-y-1 text-sm">
+                      <div className="flex items-center gap-2 text-muted-foreground">
+                        <User className="h-4 w-4" />
+                        <span className="font-medium text-foreground">Full Name:</span>
+                        <span className="text-foreground">{selectedCustomer.name}</span>
+                      </div>
+                      <div className="flex items-center gap-2 text-muted-foreground">
+                        <Users className="h-4 w-4" />
+                        <span className="font-medium text-foreground">Username:</span>
+                        <span className="text-foreground">{selectedCustomer.username}</span>
+                      </div>
+                      <div className="flex items-center gap-2 text-muted-foreground">
+                        <Mail className="h-4 w-4" />
+                        <span className="font-medium text-foreground">Email:</span>
+                        <span className="text-foreground">{selectedCustomer.email}</span>
+                      </div>
+                      <div className="flex items-center gap-2 text-muted-foreground">
+                        <Phone className="h-4 w-4" />
+                        <span className="font-medium text-foreground">Phone:</span>
+                        <span className="text-foreground">{selectedCustomer.phone}</span>
+                      </div>
                     </div>
                     <div className="text-sm text-muted-foreground">
                       Placed {formatDistanceToNow(new Date(selectedOrder.created_at), { addSuffix: true })}
@@ -363,3 +430,4 @@ export default function StaffOrders() {
     </div>
   );
 }
+

@@ -226,11 +226,12 @@ export type Database = {
       event_registrations: {
         Row: {
           amount_paid: number | null
+          contact_phone: string | null
           created_at: string | null
           event_id: string
           id: string
           notes: string | null
-          participant_email: string
+          participant_email: string | null
           participant_name: string
           party_size: number | null
           payment_method: string | null
@@ -242,11 +243,12 @@ export type Database = {
         }
         Insert: {
           amount_paid?: number | null
+          contact_phone?: string | null
           created_at?: string | null
           event_id: string
           id?: string
           notes?: string | null
-          participant_email: string
+          participant_email?: string | null
           participant_name: string
           party_size?: number | null
           payment_method?: string | null
@@ -258,11 +260,12 @@ export type Database = {
         }
         Update: {
           amount_paid?: number | null
+          contact_phone?: string | null
           created_at?: string | null
           event_id?: string
           id?: string
           notes?: string | null
-          participant_email?: string
+          participant_email?: string | null
           participant_name?: string
           party_size?: number | null
           payment_method?: string | null

@@ -60,6 +60,7 @@ export function RoomBookingForm({ room, onBack }: RoomBookingFormProps) {
   const [bookedSlots, setBookedSlots] = useState<{start_time: string, end_time: string}[]>([]);
   const [conflictError, setConflictError] = useState<string | null>(null);
   const [phoneError, setPhoneError] = useState<string | null>(null);
+  const [contactEmailError, setContactEmailError] = useState<string | null>(null);
   const [bookingId, setBookingId] = useState<string | null>(null);
   const [showCheckout, setShowCheckout] = useState(false);
   const { user } = useAuth();
@@ -101,17 +102,14 @@ export function RoomBookingForm({ room, onBack }: RoomBookingFormProps) {
     if (!date) return;
 
     try {
-      // Fetch booked slots
-      const { data: bookings, error } = await supabase
-        .from('room_bookings')
-        .select('start_time, end_time')
-        .eq('room_id', room.id)
-        .eq('booking_date', format(date, 'yyyy-MM-dd'))
-        .eq('status', 'confirmed');
+      const { data, error } = await supabase.rpc('get_confirmed_room_slots', {
+        p_room_id: room.id,
+        p_booking_date: format(date, 'yyyy-MM-dd'),
+      });
 
       if (error) throw error;
 
-      setBookedSlots(bookings || []);
+      setBookedSlots((data as any) || []);
     } catch (error: any) {
       console.error('Error fetching availability:', error);
     }
@@ -156,6 +154,7 @@ const calculateEndTime = (start: string, hours: number) => {
     e.preventDefault();
     if (!user || !date || !startTime || !duration) return;
     setPhoneError(null);
+    setContactEmailError(null);
 
     // Check if time is in the future
     if (!isTimeInFuture(date, startTime)) {
@@ -176,6 +175,17 @@ const calculateEndTime = (start: string, hours: number) => {
       return;
     }
 
+    if (!contactEmail.trim()) {
+      const message = 'Contact email is required.';
+      setContactEmailError(message);
+      toast({
+        title: 'Missing contact email',
+        description: message,
+        variant: 'destructive',
+      });
+      return;
+    }
+
     // Check availability before submitting
     if (!isTimeSlotAvailable(startTime, durationHours)) {
       setConflictError('This time slot is no longer available. Please choose another time.');
@@ -190,28 +200,39 @@ const calculateEndTime = (start: string, hours: number) => {
       const totalAmount = calculateTotal();
 
       const { data, error } = await supabase
-        .from('room_bookings')
-        .insert({
-          user_id: user.id,
-          room_id: room.id,
-          booking_date: format(date, 'yyyy-MM-dd'),
-          start_time: startTime,
-          end_time: endTime,
-          duration_hours: durationHours,
-          total_amount: totalAmount,
-          status: 'pending',
-          payment_status: 'unpaid',
-          notes,
-          contact_phone: `971${contactPhone}`,
-          contact_email: contactEmail,
+        .rpc('create_room_booking_safe', {
+          p_user_id: user.id,
+          p_room_id: room.id,
+          p_booking_date: format(date, 'yyyy-MM-dd'),
+          p_start_time: startTime,
+          p_end_time: endTime,
+          p_duration_hours: durationHours,
+          p_total_amount: totalAmount,
+          p_status: 'pending',
+          p_payment_status: 'unpaid',
+          p_notes: notes,
+          p_contact_phone: `971${contactPhone}`,
+          p_contact_email: contactEmail,
+          p_booking_source: 'room',
+          p_package_label: null,
         })
-        .select()
         .single();
 
       if (error) {
-        // Check if it's a conflict error from the trigger
-        if (error.code === '23P01' || error.message.includes('not available')) {
-          setConflictError('This room isn\'t available at that time—please choose another slot.');
+        const overlapMessage = 'This time slot is already booked. Please choose another time.';
+        if (
+          error.code === '23P01' ||
+          error.message?.includes('TIME_SLOT_ALREADY_BOOKED') ||
+          error.message?.includes('not available') ||
+          error.message?.includes('conflicts with key') ||
+          error.message?.includes('room_bookings_no_overlap_per_room')
+        ) {
+          setConflictError(overlapMessage);
+          toast({
+            title: 'Time slot unavailable',
+            description: overlapMessage,
+            variant: 'destructive',
+          });
           return;
         }
         throw error;
@@ -390,9 +411,17 @@ const calculateEndTime = (start: string, hours: number) => {
                     <Input
                       type="email"
                       value={contactEmail}
-                      onChange={(e) => setContactEmail(e.target.value)}
+                      onChange={(e) => {
+                        setContactEmail(e.target.value);
+                        if (contactEmailError && e.target.value.trim()) {
+                          setContactEmailError(null);
+                        }
+                      }}
                       placeholder="Your email address"
                     />
+                    {contactEmailError && (
+                      <p className="text-sm text-destructive">{contactEmailError}</p>
+                    )}
                   </div>
 
                   <div className="space-y-2 md:col-span-2">
@@ -408,7 +437,7 @@ const calculateEndTime = (start: string, hours: number) => {
                 <Button 
                   type="submit" 
                   className="w-full" 
-                  disabled={!date || !startTime || !duration || isSubmitting || !isPhoneValid(contactPhone)}
+                  disabled={!date || !startTime || !duration || isSubmitting || !isPhoneValid(contactPhone) || !contactEmail.trim()}
                 >
                   {isSubmitting ? 'Processing...' : 'Confirm Booking'}
                 </Button>
@@ -507,3 +536,5 @@ const calculateEndTime = (start: string, hours: number) => {
     </div>
   );
 }
+
+

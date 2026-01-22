@@ -29,7 +29,8 @@ import { format, parseISO } from 'date-fns';
 interface Registration {
   id: string;
   participant_name: string;
-  participant_email: string;
+  participant_email?: string | null;
+  contact_phone?: string | null;
   party_size: number;
   status: string;
   notes?: string;
@@ -95,9 +96,21 @@ export function EventRegistrations({ eventId, eventTitle, onBack }: EventRegistr
 
   const updateRegistrationStatus = async (registrationId: string, newStatus: string) => {
     try {
+      const { data: authData } = await supabase.auth.getUser();
+      const userId = authData?.user?.id || null;
+
+      const updatePayload: Record<string, any> = { status: newStatus };
+      if (newStatus === 'cancelled') {
+        updatePayload.cancelled_at = new Date().toISOString();
+        updatePayload.cancelled_by = userId;
+      } else {
+        updatePayload.cancelled_at = null;
+        updatePayload.cancelled_by = null;
+      }
+
       const { error } = await supabase
         .from('event_registrations')
-        .update({ status: newStatus })
+        .update(updatePayload)
         .eq('id', registrationId);
 
       if (error) throw error;
@@ -144,6 +157,7 @@ export function EventRegistrations({ eventId, eventTitle, onBack }: EventRegistr
   const getStatusBadge = (status: string) => {
     switch (status) {
       case 'confirmed':
+      case 'active':
         return <Badge variant="default">Confirmed</Badge>;
       case 'pending':
         return <Badge variant="secondary">Pending</Badge>;
@@ -186,6 +200,7 @@ export function EventRegistrations({ eventId, eventTitle, onBack }: EventRegistr
                 <TableRow>
                   <TableHead>Participant</TableHead>
                   <TableHead>Email</TableHead>
+                  <TableHead>Phone</TableHead>
                   <TableHead>Party Size</TableHead>
                   <TableHead>Status</TableHead>
                   <TableHead>Registered At</TableHead>
@@ -200,13 +215,20 @@ export function EventRegistrations({ eventId, eventTitle, onBack }: EventRegistr
                       {registration.participant_name}
                     </TableCell>
                     <TableCell>
-                      <a
-                        href={`mailto:${registration.participant_email}`}
-                        className="text-primary hover:underline inline-flex items-center gap-1"
-                      >
-                        <Mail className="h-3 w-3" />
-                        {registration.participant_email}
-                      </a>
+                      {registration.participant_email ? (
+                        <a
+                          href={`mailto:${registration.participant_email}`}
+                          className="text-primary hover:underline inline-flex items-center gap-1"
+                        >
+                          <Mail className="h-3 w-3" />
+                          {registration.participant_email}
+                        </a>
+                      ) : (
+                        <span className="text-muted-foreground text-sm">—</span>
+                      )}
+                    </TableCell>
+                    <TableCell className="whitespace-nowrap">
+                      {registration.contact_phone || <span className="text-muted-foreground text-sm">—</span>}
                     </TableCell>
                     <TableCell>{registration.party_size}</TableCell>
                     <TableCell>{getStatusBadge(registration.status)}</TableCell>

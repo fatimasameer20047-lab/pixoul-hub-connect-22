@@ -11,7 +11,8 @@ import { formatPriceAED } from '@/lib/price-formatter';
 interface Registration {
   id: string;
   participant_name: string;
-  participant_email: string;
+  participant_email?: string | null;
+  contact_phone?: string | null;
   party_size: number;
   status: string;
   notes?: string;
@@ -196,9 +197,16 @@ export function MyRegistrations() {
                 <div>
                   <strong>Participant:</strong> {registration.participant_name}
                 </div>
-                <div>
-                  <strong>Email:</strong> {registration.participant_email}
-                </div>
+                {registration.participant_email && (
+                  <div>
+                    <strong>Email:</strong> {registration.participant_email}
+                  </div>
+                )}
+                {registration.contact_phone && (
+                  <div>
+                    <strong>Phone:</strong> {registration.contact_phone}
+                  </div>
+                )}
                 {registration.events_programs.type === 'program' && (registration.events_programs.price || 0) > 0 && (
                   <div>
                     <strong>Total Cost:</strong> {formatPriceAED((registration.events_programs.price || 0) * registration.party_size)}

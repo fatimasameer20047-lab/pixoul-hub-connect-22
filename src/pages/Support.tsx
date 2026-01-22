@@ -240,8 +240,17 @@ export default function Support() {
     );
   }
 
+  const layoutVars: React.CSSProperties = {
+    // adjust these if bottom nav height changes elsewhere
+    ['--bottom-nav-height' as any]: '64px',
+    ['--composer-height' as any]: '64px',
+  };
+
   return (
-    <div className="flex flex-col h-[100dvh] min-h-[100vh] bg-background overflow-hidden">
+    <div
+      className="flex flex-col h-[100dvh] min-h-[100dvh] bg-background"
+      style={layoutVars}
+    >
       {/* MOBILE: Full-screen chat layout */}
       <div className="px-4 py-2 border-b md:hidden flex items-center gap-2 bg-card/80 backdrop-blur supports-[backdrop-filter]:bg-card/70">
         <MessageCircle className="h-5 w-5" />
@@ -251,7 +260,7 @@ export default function Support() {
       {/* Messages scroll area; padded at bottom for composer + bottom nav */}
       <div
         ref={listRef}
-        className="flex-1 min-h-0 overflow-y-auto px-4 pt-4 space-y-3 bg-muted/20 pb-[calc(96px+env(safe-area-inset-bottom))]"
+        className="flex-1 min-h-0 overflow-y-auto px-4 pt-4 space-y-3 bg-muted/20 pb-[calc(var(--composer-height,64px)+var(--bottom-nav-height,64px)+env(safe-area-inset-bottom)+16px)]"
         onScroll={() => {
           if (atBottom() && newCount > 0) setNewCount(0);
         }}
@@ -308,16 +317,17 @@ export default function Support() {
           e.preventDefault();
           sendMessage();
         }}
-        className="sticky bottom-12 inset-x-0 z-10 bg-background/95 backdrop-blur border-t px-3 pb-[calc(env(safe-area-inset-bottom)+12px)] pt-2"
+        className="sticky inset-x-0 z-10 bg-background/95 backdrop-blur border-t px-3 pb-[calc(env(safe-area-inset-bottom)+8px)] pt-2"
+        style={{ bottom: 'calc(var(--bottom-nav-height,64px))' }}
       >
         <div className="mx-auto max-w-screen-sm w-full flex items-center gap-2">
           <Input
             value={newMessage}
             onChange={(e) => setNewMessage(e.target.value)}
             placeholder="Type your message..."
-            className="h-10 flex-1"
+            className="h-11 flex-1"
           />
-          <Button type="submit" disabled={!newMessage.trim()} className="h-10 px-4">
+          <Button type="submit" disabled={!newMessage.trim()} className="h-11 px-4">
             <Send className="h-4 w-4" />
           </Button>
         </div>

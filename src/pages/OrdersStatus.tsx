@@ -4,8 +4,10 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { useAuth } from '@/contexts/AuthContext';
 import { supabase } from '@/integrations/supabase/client';
 import { ScrollArea } from '@/components/ui/scroll-area';
-import { Loader2, MapPin, UtensilsCrossed } from 'lucide-react';
+import { Loader2, MapPin, UtensilsCrossed, ArrowLeft } from 'lucide-react';
 import { formatPriceAED } from '@/lib/price-formatter';
+import { useNavigate } from 'react-router-dom';
+import { Button } from '@/components/ui/button';
 
 type OrderItem = {
   name: string;
@@ -45,6 +47,7 @@ export default function OrdersStatus() {
   const { user } = useAuth();
   const [orders, setOrders] = useState<OrderRow[]>([]);
   const [loading, setLoading] = useState(false);
+  const navigate = useNavigate();
 
   const userId = user?.id || null;
 
@@ -92,8 +95,22 @@ export default function OrdersStatus() {
   }
 
   return (
-    <div className="p-6 space-y-4 max-w-3xl mx-auto">
+    <div className="p-6 pt-10 space-y-4 max-w-3xl mx-auto">
       <div className="flex items-center gap-2">
+        <Button
+          variant="ghost"
+          size="icon"
+          className="h-9 w-9"
+          onClick={() => {
+            if (window.history.length > 1) {
+              navigate(-1);
+            } else {
+              navigate('/snacks');
+            }
+          }}
+        >
+          <ArrowLeft className="h-4 w-4" />
+        </Button>
         <UtensilsCrossed className="h-5 w-5" />
         <h1 className="text-xl font-semibold">My Orders</h1>
       </div>

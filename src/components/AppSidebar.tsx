@@ -1,11 +1,11 @@
-import React, { useState, useEffect } from 'react';
-import { NavLink, useLocation } from 'react-router-dom';
-import { 
-  Home, 
-  Calendar, 
-  Coffee, 
-  Camera, 
-  BookOpen, 
+﻿import React, { useEffect, useState } from 'react';
+import { NavLink } from 'react-router-dom';
+import {
+  Home,
+  Calendar,
+  Coffee,
+  Camera,
+  BookOpen,
   MessageSquare,
   CalendarPlus,
   Users,
@@ -28,8 +28,15 @@ import {
 } from '@/components/ui/sidebar';
 import { useAuth } from '@/contexts/AuthContext';
 import { Button } from '@/components/ui/button';
-import { Badge } from '@/components/ui/badge';
 import { supabase } from '@/integrations/supabase/client';
+
+type ProfileSummary = {
+  full_name?: string | null;
+  name?: string | null;
+  username?: string | null;
+  email?: string | null;
+  phone_number?: string | null;
+};
 
 const allRoutes = [
   { title: 'Home', url: '/', icon: Home },
@@ -45,55 +52,85 @@ const allRoutes = [
 export function AppSidebar() {
   const { state } = useSidebar();
   const { user, signOut } = useAuth();
-  const location = useLocation();
   const isDemoMode = import.meta.env.DEMO_MODE === 'true';
-  const [userProfile, setUserProfile] = useState<{ full_name?: string; name?: string } | null>(null);
+  const [userProfile, setUserProfile] = useState<ProfileSummary | null>(null);
+  const [profileLoading, setProfileLoading] = useState(false);
 
   const getNavCls = ({ isActive }: { isActive: boolean }) =>
-    isActive 
-      ? "bg-primary/20 text-primary font-medium border-r-2 border-primary" 
+    isActive
+      ? "bg-primary/20 text-primary font-medium border-r-2 border-primary"
       : "hover:bg-muted/50 text-muted-foreground hover:text-foreground";
 
   const isCollapsed = state === "collapsed";
 
-  // Fetch user profile
   useEffect(() => {
-    if (user && !isDemoMode) {
-      const fetchProfile = async () => {
-        const { data } = await supabase
-          .from('profiles')
-          .select('full_name, name')
-          .eq('user_id', user.id)
-          .single();
-        
-        if (data) {
-          setUserProfile(data);
-        }
-      };
-      
-      fetchProfile();
-    }
-  }, [user, isDemoMode]);
+    if (isDemoMode) return;
 
-  const getInitials = (name: string) => {
+    const fetchProfileWithRetry = async (userId: string) => {
+      const attempts = 6;
+      const delayMs = 300;
+      for (let i = 0; i < attempts; i++) {
+        const { data, error } = await supabase
+          .from('profiles' as any)
+          .select('full_name, name, username, phone_number, email')
+          .eq('user_id', userId)
+          .maybeSingle();
+
+        if (!error && data) return data;
+        await new Promise((resolve) => setTimeout(resolve, delayMs));
+      }
+      return null;
+    };
+
+    const fetchProfile = async () => {
+      setProfileLoading(true);
+      const { data: authData } = await supabase.auth.getUser();
+      const authUser = authData?.user || user;
+
+      if (!authUser?.id) {
+        setUserProfile(null);
+        setProfileLoading(false);
+        return;
+      }
+
+      const profile = await fetchProfileWithRetry(authUser.id);
+      if (profile) {
+        setUserProfile(profile);
+      }
+      setProfileLoading(false);
+    };
+
+    fetchProfile();
+  }, [user?.id, isDemoMode]);
+
+      const getInitials = (name: string) => {
     return name
-      .split(' ')
+      .split(" ")
       .map(word => word.charAt(0).toUpperCase())
       .slice(0, 2)
-      .join('');
+      .join("");
   };
 
   const getDisplayName = () => {
-    if (isDemoMode) return user?.user_metadata?.name || 'Guest User';
-    return userProfile?.full_name || userProfile?.name || user?.user_metadata?.name || 'User';
+    if (isDemoMode) return user?.user_metadata?.full_name || user?.user_metadata?.name || "Guest User";
+    const emailPrefix = user?.email ? user.email.split("@")[0] : undefined;
+    return userProfile?.full_name || userProfile?.name || user?.user_metadata?.full_name || user?.user_metadata?.username || emailPrefix || "User";
   };
+
+  const getDisplayUsername = () => {
+    const username = userProfile?.username || user?.user_metadata?.username;
+    return username ? `@${username}` : "—";
+  };
+
+  const getDisplayPhone = () => userProfile?.phone_number || user?.user_metadata?.phone_number || "—";
+  const getDisplayEmail = () => userProfile?.email || user?.email || "—";
 
   const getAvatarInitials = () => {
     const displayName = getDisplayName();
-    if (displayName !== 'User') {
+    if (displayName && displayName !== "User") {
       return getInitials(displayName);
     }
-    return user?.email ? user.email.charAt(0).toUpperCase() : 'U';
+    return user?.email ? user.email.charAt(0).toUpperCase() : "U";
   };
 
   const handleSignOut = async () => {
@@ -158,17 +195,33 @@ export function AppSidebar() {
                   </span>
                 </div>
                 <div className="flex-1 min-w-0">
-                  <p className="text-sm font-medium truncate">
-                    {getDisplayName()}
-                  </p>
-                  <p className="text-xs text-muted-foreground truncate">
-                    {user?.email}
-                  </p>
+                  {profileLoading ? (
+                    <div className="space-y-1 text-xs text-muted-foreground">
+                      <div className="h-4 w-24 bg-muted animate-pulse rounded" />
+                      <div className="h-3 w-20 bg-muted animate-pulse rounded" />
+                      <div className="h-3 w-28 bg-muted animate-pulse rounded" />
+                    </div>
+                  ) : (
+                    <>
+                      <p className="text-sm font-medium truncate">
+                        {getDisplayName()}
+                      </p>
+                      <p className="text-xs text-muted-foreground truncate">
+                        {getDisplayUsername()}
+                      </p>
+                      <p className="text-xs text-muted-foreground truncate">
+                        {getDisplayEmail()}
+                      </p>
+                      <p className="text-xs text-muted-foreground truncate">
+                        {getDisplayPhone()}
+                      </p>
+                    </>
+                  )}
                 </div>
               </div>
-              <Button 
-                variant="outline" 
-                size="sm" 
+              <Button
+                variant="outline"
+                size="sm"
                 onClick={handleSignOut}
                 className="w-full justify-start"
               >
@@ -184,9 +237,9 @@ export function AppSidebar() {
                   {getAvatarInitials()}
                 </span>
               </div>
-              <Button 
-                variant="outline" 
-                size="sm" 
+              <Button
+                variant="outline"
+                size="sm"
                 onClick={handleSignOut}
                 className="w-full p-2"
               >
@@ -199,3 +252,7 @@ export function AppSidebar() {
     </Sidebar>
   );
 }
+
+
+
+

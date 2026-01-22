@@ -10,10 +10,24 @@ import { useNavigate } from 'react-router-dom';
 import { formatDistanceToNow } from 'date-fns';
 import { useStaff } from '@/contexts/StaffContext';
 
-type RecipientKey = 'customer' | 'support' | 'booking' | 'snacks';
+type RecipientKey =
+  | 'customer'
+  | 'support_staff'
+  | 'booking_staff'
+  | 'orders_staff'
+  | 'gallery_staff';
+
+const ALLOWED_KINDS = new Set([
+  'chat',
+  'booking_room',
+  'booking_package',
+  'booking_party',
+  'gallery_pending',
+  'order',
+]);
 
 type NotificationRow = {
-  id: number;
+  id: string;
   title: string;
   body: string | null;
   created_at: string;
@@ -21,7 +35,7 @@ type NotificationRow = {
   is_read: boolean;
   recipient_role: string | null;
   recipient_user_id: string | null;
-  kind: string;
+  kind?: string;
 };
 
 type NotificationBellProps = {
@@ -29,62 +43,146 @@ type NotificationBellProps = {
   staffRoleOverride?: string | null;
 };
 
+const LEGACY_ROLE_MAPPING: Partial<Record<RecipientKey, string>> = {
+  support_staff: 'support',
+  booking_staff: 'booking',
+  orders_staff: 'snacks',
+  gallery_staff: 'gallery',
+};
+
 export function NotificationBell({ customerIdOverride, staffRoleOverride }: NotificationBellProps) {
   const { user } = useAuth();
   const navigate = useNavigate();
-  const { canManageRooms, canManageSupport, canManageSnacks } = useStaff();
+  const {
+    canManageRooms,
+    canManageSupport,
+    canManageSnacks,
+    canModerateGallery,
+  } = useStaff();
 
   const [notifications, setNotifications] = useState<NotificationRow[]>([]);
   const [unreadCount, setUnreadCount] = useState(0);
   const [isOpen, setIsOpen] = useState(false);
-
   const mode = useMemo(() => {
     let staffRole: RecipientKey | null = null;
     const explicit = staffRoleOverride?.toLowerCase();
-    if (explicit === 'support' || explicit === 'support_staff') staffRole = 'support';
-    if (explicit === 'booking' || explicit === 'booking_staff') staffRole = 'booking';
-    if (explicit === 'snacks' || explicit === 'orders_staff' || explicit === 'orders') staffRole = 'snacks';
+    if (explicit === 'support' || explicit === 'support_staff') staffRole = 'support_staff';
+    if (explicit === 'booking' || explicit === 'booking_staff') staffRole = 'booking_staff';
+    if (explicit === 'snacks' || explicit === 'orders_staff' || explicit === 'orders') staffRole = 'orders_staff';
+    if (explicit === 'gallery' || explicit === 'gallery_staff') staffRole = 'gallery_staff';
 
     if (!staffRole) {
-      if (canManageSupport) staffRole = 'support';
-      else if (canManageRooms) staffRole = 'booking';
-      else if (canManageSnacks) staffRole = 'snacks';
+      if (canManageSupport) staffRole = 'support_staff';
+      else if (canManageRooms) staffRole = 'booking_staff';
+      else if (canManageSnacks) staffRole = 'orders_staff';
+      else if (canModerateGallery) staffRole = 'gallery_staff';
     }
 
     if (staffRole) {
       return { key: staffRole as RecipientKey, customerId: null };
     }
 
-    const customerId = customerIdOverride || user?.id || null;
-    return customerId ? { key: 'customer' as RecipientKey, customerId } : null;
-  }, [staffRoleOverride, customerIdOverride, canManageSupport, canManageRooms, canManageSnacks, user?.id]);
+    const resolvedCustomerId = customerIdOverride || user?.id || null;
+    return resolvedCustomerId ? { key: 'customer' as RecipientKey, customerId: resolvedCustomerId } : null;
+  }, [
+    staffRoleOverride,
+    customerIdOverride,
+    canManageSupport,
+    canManageRooms,
+    canManageSnacks,
+    canModerateGallery,
+    user?.id,
+  ]);
 
   const fetchNotifications = useCallback(async () => {
     if (!mode) return;
 
+    let roles: string[] = [];
+    if (mode.key === 'customer') {
+      // Customer path (unchanged)
+      const { data, error } = await supabase
+        .from('notifications')
+        .select('id, title, body, created_at, link_path, is_read, recipient_role, recipient_user_id, kind')
+        .eq('is_read', false)
+        .eq('recipient_user_id', mode.customerId!)
+        .order('created_at', { ascending: false })
+        .limit(30);
+      const queryAError = error ? `${error.message} (${error.code || 'no_code'})` : null;
+      const rowsA = ((data as NotificationRow[]) || [])
+        .map((row) => ({
+          ...row,
+          kind: row.kind ?? 'unknown',
+        }))
+        .filter((row) => ALLOWED_KINDS.has(row.kind || ''));
+      const unread = rowsA.filter((n) => !n.is_read).length;
+      setNotifications(rowsA);
+      setUnreadCount(unread);
+      return;
+    }
+
+    // Staff path: direct query using roles (booking/support/orders/gallery)
+    roles = [mode.key, LEGACY_ROLE_MAPPING[mode.key]].filter(Boolean) as string[];
+    if (roles.includes('gallery_staff') && !roles.includes('gallery_moderator')) {
+      roles.push('gallery_moderator');
+    }
     let query = supabase
       .from('notifications')
       .select('id, title, body, created_at, link_path, is_read, recipient_role, recipient_user_id, kind')
-      .eq('is_read', false)
       .order('created_at', { ascending: false })
-      .limit(30);
+      .limit(50);
 
-    if (mode.key === 'customer') {
-      query = query.eq('recipient_user_id', mode.customerId!);
-    } else {
-      query = query.eq('recipient_role', mode.key);
+    if (roles.length > 0) {
+      query = query.in('recipient_role', roles);
     }
 
     const { data, error } = await query;
-    if (import.meta.env.DEV) {
-      console.debug('[NotificationBell] fetch', { mode, filter: mode.key === 'customer' ? mode.customerId : mode.key, error, count: data?.length });
-    }
-    if (error) return;
+    const queryAError = error ? `${error.message} (${error.code || 'no_code'})` : null;
 
-    const rows = (data as NotificationRow[]) || [];
-    setNotifications(rows);
-    setUnreadCount(rows.filter((n) => !n.is_read).length);
-  }, [mode]);
+    const rowsA = ((data as NotificationRow[]) || [])
+      .map((row) => ({
+        ...row,
+        kind: row.kind ?? 'unknown',
+      }))
+      .filter((row) => ALLOWED_KINDS.has(row.kind || ''));
+
+    const unread = rowsA.filter((n) => !n.is_read).length;
+
+    // Fallback: if nothing returned, try a simple select without is_read filter then filter client-side
+    let fallbackRows: NotificationRow[] = [];
+    if (rowsA.length === 0) {
+      const { data: fbData, error: fbError } = await supabase
+        .from('notifications')
+        .select('id, title, body, created_at, link_path, is_read, recipient_role, recipient_user_id, kind')
+        .order('created_at', { ascending: false })
+        .limit(50);
+      if (!fbError) {
+        fallbackRows = ((fbData as NotificationRow[]) || [])
+          .map((row) => ({
+            ...row,
+            kind: row.kind ?? 'unknown',
+          }))
+          .filter((row) => ALLOWED_KINDS.has(row.kind || ''))
+          .filter((row) => roles.length === 0 || (row.recipient_role && roles.includes(row.recipient_role)))
+          .filter((row) => !row.is_read);
+      }
+    }
+
+    const effectiveRows = rowsA.length > 0 ? rowsA : fallbackRows;
+    const effectiveUnread = effectiveRows.filter((n) => !n.is_read).length;
+
+    setNotifications(effectiveRows);
+    setUnreadCount(effectiveUnread);
+
+    if (import.meta.env.DEV) {
+      console.debug('[NotificationBell] staff fetch', {
+        mode,
+        roles,
+        error,
+        count: effectiveRows.length,
+        unread: effectiveUnread,
+      });
+    }
+  }, [mode, supabase]);
 
   useEffect(() => {
     fetchNotifications();
@@ -92,33 +190,31 @@ export function NotificationBell({ customerIdOverride, staffRoleOverride }: Noti
 
   useEffect(() => {
     if (!mode) return;
-    const filters =
-      mode.key === 'customer' && mode.customerId
-        ? [`recipient_user_id=eq.${mode.customerId}`]
-        : [`recipient_role=eq.${mode.key}`];
-
-    const channels = filters.map((filter) =>
-      supabase
-        .channel(`notifications-${mode.key}-${filter}`)
-        .on(
-          'postgres_changes',
-          { event: '*', schema: 'public', table: 'notifications', filter },
-          (payload) => {
-            if (import.meta.env.DEV) {
-              console.debug('[NotificationBell] realtime', { mode, filter, payload });
-            }
-            fetchNotifications();
+    if (mode.key !== 'customer') {
+      // For staff we rely on RPC fetch (no realtime to avoid RLS noise)
+      return;
+    }
+    const filter = `recipient_user_id=eq.${mode.customerId}`;
+    const channel = supabase
+      .channel(`notifications-${mode.key}-${filter}`)
+      .on(
+        'postgres_changes',
+        { event: '*', schema: 'public', table: 'notifications', filter },
+        (payload) => {
+          if (import.meta.env.DEV) {
+            console.debug('[NotificationBell] realtime', { mode, filter, payload });
           }
-        )
-        .subscribe()
-    );
+          fetchNotifications();
+        }
+      )
+      .subscribe();
 
     return () => {
-      channels.forEach((ch) => supabase.removeChannel(ch));
+      supabase.removeChannel(channel);
     };
   }, [mode, fetchNotifications]);
 
-  const markAsRead = async (notificationId: number) => {
+  const markAsRead = async (notificationId: string) => {
     setNotifications((prev) => prev.filter((n) => n.id !== notificationId));
     setUnreadCount((prev) => Math.max(0, prev - 1));
 

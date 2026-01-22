@@ -230,7 +230,7 @@ export default function PhotoUploadModal({ isOpen, onClose, onUpload }: PhotoUpl
                 <Label htmlFor="private" className="flex items-center gap-2 cursor-pointer">
                   <EyeOff className="h-4 w-4" />
                   <div>
-                    <div>Private</div>
+                    <div>Post privately</div>
                     <div className="text-xs text-muted-foreground">Only you can see this photo</div>
                   </div>
                 </Label>
@@ -240,7 +240,8 @@ export default function PhotoUploadModal({ isOpen, onClose, onUpload }: PhotoUpl
                 <Label htmlFor="public" className="flex items-center gap-2 cursor-pointer">
                   <Eye className="h-4 w-4" />
                   <div>
-                    <div>Submit for Approval</div>
+                    <div>Post publicly</div>
+                    <div className="text-xs text-muted-foreground">(Submit for approval)</div>
                     <div className="text-xs text-muted-foreground">Will be visible after staff approval</div>
                   </div>
                 </Label>

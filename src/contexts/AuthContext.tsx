@@ -83,35 +83,6 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
           }
         }
         
-        // Ensure profile exists for authenticated users
-        if (session?.user) {
-          setTimeout(async () => {
-            try {
-              const { data: existingProfile } = await supabase
-                .from('profiles')
-                .select('id')
-                .eq('user_id', session.user.id)
-                .maybeSingle();
-              
-              if (!existingProfile) {
-                const fullName = session.user.user_metadata?.full_name || 
-                                session.user.user_metadata?.name || 
-                                'User';
-                await supabase
-                  .from('profiles')
-                  .insert({
-                    user_id: session.user.id,
-                    name: fullName,
-                    full_name: fullName,
-                    avatar_color: '#' + Math.random().toString(16).substr(-6)
-                  });
-              }
-            } catch (error) {
-              console.error('Error ensuring profile exists:', error);
-            }
-          }, 0);
-        }
-        
         setIsLoading(false);
       }
     );

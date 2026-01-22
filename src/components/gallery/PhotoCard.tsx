@@ -152,7 +152,10 @@ export default function PhotoCard({
                     {onChangeVisibility && photo.visibility === 'private' && (
                       <DropdownMenuItem onClick={() => onChangeVisibility(photo.id, 'public')}>
                         <Globe className="h-4 w-4 mr-2" />
-                        Submit for Approval
+                        <div className="flex flex-col leading-tight">
+                          <span>Post publicly</span>
+                          <span className="text-[11px] text-muted-foreground">(Submit for approval)</span>
+                        </div>
                       </DropdownMenuItem>
                     )}
                     {photo.visibility === 'pending' && (

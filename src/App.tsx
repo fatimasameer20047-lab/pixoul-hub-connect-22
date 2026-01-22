@@ -191,11 +191,12 @@ const AppLayout = ({ children }: { children: React.ReactNode }) => {
 
 const StaffLayout = ({ children }: { children: React.ReactNode }) => {
   const { user } = useAuth();
-  const { staffRole, canManageSupport, canManageRooms, canManageSnacks } = useStaff();
+  const { staffRole, canManageSupport, canManageRooms, canManageSnacks, canModerateGallery } = useStaff();
   const resolvedStaffRole =
     canManageSupport ? 'support' :
     canManageRooms ? 'booking' :
     canManageSnacks ? 'snacks' :
+    canModerateGallery ? 'gallery' :
     staffRole ? staffRole : null;
   
   return (
